@@ -12,6 +12,10 @@ import seaborn as sns
 def load_shapefile(file_path):
     return gpd.read_file(file_path)
 
+# Filtre du shapefile
+def filter_polygons_by_code(dataframe, code_column, allowed_codes):
+    return dataframe[dataframe[code_column].isin(allowed_codes)]
+
 # Calcul du nombre de polygones par classe
 def calculate_polygons_per_class(dataframe, class_column):
     return dataframe[class_column].value_counts()
@@ -51,8 +55,12 @@ def pixels_per_class(input_image, shapefile_path, output_pix_path) :
     # Chargement du fichier shapefile
     shapefile = gpd.read_file(shapefile_path)
 
-    # Correspondance code -> nom
+    # Filte du shapefile
+    allowed_codes = [11, 12, 13, 14, 21, 22, 23, 24, 25]
     shapefile["code"] = shapefile["code"].astype(int)
+    shapefile = shapefile[shapefile["code"].isin(allowed_codes)]
+
+    # Correspondance code -> nom
     code_to_name = dict(zip(shapefile["code"], shapefile["nom"]))
 
     # Création d'un DataFrame
@@ -89,9 +97,11 @@ def pixels_per_polygons_per_class(raster_path, shapefile_path, output_violin_pat
     data_set = rw.open_image(raster_path)
     img = rw.load_img_as_array(raster_path)
 
-    # Chargement du shapefile
+    # Chargement et filtre du shapefile
     shapefile = gpd.read_file(shapefile_path)
+    allowed_codes = [11, 12, 13, 14, 21, 22, 23, 24, 25]
     shapefile["code"] = shapefile["code"].astype(int)
+    shapefile = shapefile[shapefile["code"].isin(allowed_codes)]
 
     # Calcul des statistiques pour compter les pixels par polygone
     stats = zonal_stats(
@@ -126,9 +136,13 @@ def pixels_per_polygons_per_class(raster_path, shapefile_path, output_violin_pat
 
 shapefile_path = "/home/onyxia/work/projet_teledec_2024/Sample_BD_foret_T31TCJ.shp"
 raster_path = "/home/onyxia/work/projet_teledec_2024/raster.tif"
+code_column = "code"
 class_column = "nom"
+allowed_codes = [11, 12, 13, 14, 21, 22, 23, 24, 25]
 gdf = load_shapefile(shapefile_path)
-class_counts = calculate_polygons_per_class(gdf, class_column)
+gdf[code_column] = gdf[code_column].astype(int)
+filtered_gdf = filter_polygons_by_code(gdf, code_column, allowed_codes)
+class_counts = calculate_polygons_per_class(filtered_gdf, class_column)
 output_poly_path = "/home/onyxia/work/projet_teledec_2024/diag_baton_nb_poly_by_class.png"
 create_bar_chart_matplotlib(class_counts, output_poly_path)
 print("Diagramme en bâton créé et enregistré avec succès !")
