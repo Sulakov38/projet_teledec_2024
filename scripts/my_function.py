@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from osgeo import gdal
 from rasterstats import zonal_stats
 import seaborn as sns
 import sys
@@ -148,3 +149,66 @@ def pixels_per_polygons_per_class(raster_path, shapefile_path, output_violin_pat
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.savefig(output_violin_path)
+
+# Dictionnaire de correspondance entre les types de données et GDAL
+data_type_match = {
+    'uint8': gdal.GDT_Byte,
+    'uint16': gdal.GDT_UInt16,
+    'uint32': gdal.GDT_UInt32,
+    'int16': gdal.GDT_Int16,
+    'int32': gdal.GDT_Int32,
+    'float32': gdal.GDT_Float32,
+    'float64': gdal.GDT_Float64,
+}
+
+# Fonction pour charger une image en tant que tableau numpy
+def load_img_as_array(filename):
+    """
+    Charge une image et retourne un tableau numpy et son dataset GDAL.
+    """
+    dataset = gdal.Open(filename)
+    if not dataset:
+        raise FileNotFoundError(f"Impossible d'ouvrir le fichier {filename}")
+    return dataset.ReadAsArray(), dataset
+
+# Fonction pour écrire une image à partir d'un tableau numpy
+def write_image(output_filename, array, reference_ds, gdal_dtype):
+    """
+    Enregistre un tableau numpy dans un fichier TIFF en utilisant un dataset de référence.
+    """
+    driver = gdal.GetDriverByName('GTiff')
+    out_ds = driver.Create(
+        output_filename,
+        reference_ds.RasterXSize,
+        reference_ds.RasterYSize,
+        array.shape[0],  # Nombre de bandes
+        gdal_dtype
+    )
+    out_ds.SetGeoTransform(reference_ds.GetGeoTransform())
+    out_ds.SetProjection(reference_ds.GetProjection())
+
+    for i in range(array.shape[0]):
+        out_ds.GetRasterBand(i + 1).WriteArray(array[i])
+
+    out_ds.FlushCache()
+    out_ds = None
+
+# Fonction pour calculer l'indice d'une bande
+def calculate_band_index(date_index, band_position, bands_per_date, total_bands):
+    """
+    Calcule l'indice de bande pour une date et une position données.
+    Vérifie que l'indice ne dépasse pas le nombre total de bandes.
+    """
+    band_index = date_index * bands_per_date + band_position
+    if band_index >= total_bands:
+        raise ValueError(f"L'indice de bande {band_index} dépasse le nombre total de bandes ({total_bands}).")
+    return band_index
+
+# Fonction pour calculer le NDVI
+def compute_ndvi(red_band, nir_band):
+    """
+    Calcule le NDVI à partir des bandes rouge et infrarouge.
+    Gère les divisions par zéro en remplaçant les NaN par -9999.
+    """
+    ndvi = (nir_band - red_band) / (nir_band + red_band)
+    return np.nan_to_num(ndvi, nan=-9999)  # Remplace les NaN par -9999
