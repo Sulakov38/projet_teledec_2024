@@ -13,35 +13,6 @@ import sys
 sys.path.append('libsigma/')
 import read_and_write as rw
 
-# Paramètres pour preparation
-emprise = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/emprise.tif'
-bands = [2, 3, 4, 5, 6, 7, 8, '8A', 11, 12]
-releves = [
-    'B_20220326-105856-076_L2A_T31TCJ_C_V3-0_FRE_B',
-    'B_20220405-105855-542_L2A_T31TCJ_C_V3-0_FRE_B',
-    'B_20220803-105903-336_L2A_T31TCJ_C_V3-0_FRE_B',
-    'B_20221111-105858-090_L2A_T31TCJ_C_V3-1_FRE_B',
-    'A_20221116-105900-865_L2A_T31TCJ_C_V3-1_FRE_B',
-    'B_20230209-105857-157_L2A_T31TCJ_C_V3-1_FRE_B'
-]
-
-forest = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/masque_foret.tif'
-img_all_band = preparation(releves, bands, emprise, forest)
-
-# Concaténation des bandes
-output_img = '/home/onyxia/work/data/images/Serie_temp_S2_allbands_concat.tif'
-image_filename = '/home/onyxia/work/data/images/SENTINEL2B_20220326-105856-076_L2A_T31TCJ_C_V3-0_FRE_B2_10_2154.tif'
-img = np.concatenate(img_all_band, axis=-1)
-data_set = rw.open_image(image_filename)
-rw.write_image(output_img, img, data_set=data_set)
-
-# Paramètres pour nodata
-input_raster = '/home/onyxia/work/data/images/Serie_temp_S2_allbands_concat.tif'
-output_raster = '/home/onyxia/work/data/images/Serie_temp_S2_allbands.tif'
-nodata(input_raster, output_raster, 0)
-
-print(f"L'image Concaténé a été enregistrée dans {output_raster}")
-
 # Définition des paramètres
 dirname = '/home/onyxia/work/data/images'  # Dossier contenant l'image d'entrée
 out_dirname = '/home/onyxia/work/data/images'  # Dossier de sortie

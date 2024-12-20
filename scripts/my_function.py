@@ -5,8 +5,8 @@ import pandas as pd
 from osgeo import gdal
 from rasterstats import zonal_stats
 import seaborn as sns
-import sys
 import os
+import sys
 sys.path.append('libsigma/')
 import read_and_write as rw
 
@@ -41,24 +41,23 @@ def reproject_raster(minx, miny, maxx, maxy, input_raster, output_raster, src_ep
     print(cmd)
     os.system(cmd)
 
-def preparation(releves, bands, emprise, liste_img):
+def preparation(releves, bands, emprise, forest):
     """
     Prepares Sentinel-2 images by reprojecting, masking, and storing them in a list.
     Args:
         releves (list): List of Sentinel-2 acquisition identifiers.
         bands (list): List of band indices to process.
         emprise (str): Path to the raster defining the study extent.
-        liste_img (list): List to store processed image arrays.
     """
     suffixe = '.tif'
     minx, miny, maxx, maxy = get_img_extend(emprise)
     src_epsg = 32631  # EPSG 32631 (UTM zone 31N)
     dst_epsg = 2154   # EPSG 2154 (RGF93 / Lambert-93)
-
+    img_all_band = []
     for r in releves:
         for B in bands:
             # Construct file paths
-            band_name = f'data/images/SENTINEL2{r}{B}'
+            band_name = f'/home/onyxia/work/data/images//SENTINEL2{r}{B}'
             band_file = f'{band_name}{suffixe}'
             output_filename = f"{band_name}_10_2154{suffixe}"
             
@@ -72,22 +71,23 @@ def preparation(releves, bands, emprise, liste_img):
             band_masked[~masque_foret] = 0
             
             # Append the masked band to the list
-            liste_img.append(band_masked)
+            img_all_band.append(band_masked)
+    return img_all_band
 
-def nodata(input_raster, output_raster):
+def nodata(input_raster, output_raster, value):
     """
-    Sets the no-data value of a raster to 0.
+    Sets the no-data value of a raster.
     Args:
         input_raster (str): Path to the input raster file.
         output_raster (str): Path to the output raster file.
     """
     # Define the command pattern for setting no-data value
-    cmd_pattern = ("gdal_translate -a_nodata 0 "
+    cmd_pattern = ("gdal_translate -a_nodata {value} "
                    "-of GTiff "
                    "{input_raster} {output_raster}")
     
     # Fill the command with the parameters
-    cmd = cmd_pattern.format(input_raster=input_raster, output_raster=output_raster)
+    cmd = cmd_pattern.format(input_raster=input_raster, output_raster=output_raster, value=value)
     
     # Print and execute the command
     print(cmd)
