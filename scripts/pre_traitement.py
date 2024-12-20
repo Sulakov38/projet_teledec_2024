@@ -7,6 +7,8 @@ from my_function import (
     calculate_band_index,
     compute_ndvi,
     data_type_match,
+    preparation,
+    nodata
 )
 
 # Paramètres pour preparation
