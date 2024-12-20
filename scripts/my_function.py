@@ -7,7 +7,7 @@ from rasterstats import zonal_stats
 import seaborn as sns
 import os
 import sys
-sys.path.append('libsigma/')
+sys.path.append('/home/onyxia/work/libsigma/')
 import read_and_write as rw
 
 def reproject_raster(minx, miny, maxx, maxy, input_raster, output_raster, src_epsg, dst_epsg):
