@@ -10,7 +10,7 @@ from my_function import (
     nodata
 )
 import sys
-sys.path.append('libsigma/')
+sys.path.append('../libsigma/')
 import read_and_write as rw
 
 # Paramètres pour preparation
