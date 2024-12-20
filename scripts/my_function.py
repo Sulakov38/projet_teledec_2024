@@ -10,6 +10,89 @@ import os
 sys.path.append('libsigma/')
 import read_and_write as rw
 
+def reproject_raster(minx, miny, maxx, maxy, input_raster, output_raster, src_epsg, dst_epsg):
+    """
+    Reprojects and clips a raster to a new coordinate reference system and extent.
+    Args:
+        minx (float): Minimum X-coordinate of the extent.
+        miny (float): Minimum Y-coordinate of the extent.
+        maxx (float): Maximum X-coordinate of the extent.
+        maxy (float): Maximum Y-coordinate of the extent.
+        input_raster (str): Path to the input raster file.
+        output_raster (str): Path to the output raster file.
+        src_epsg (int): EPSG code of the source coordinate system.
+        dst_epsg (int): EPSG code of the target coordinate system.
+    """
+    # Define the command pattern with parameters
+    cmd_pattern = ("gdalwarp -s_srs EPSG:{src_epsg} "
+                   "-t_srs EPSG:{dst_epsg} "
+                   "-te {minx} {miny} {maxx} {maxy} -te_srs EPSG:{dst_epsg} "
+                   "-tr 10 10 "
+                   "-r near "
+                   "-of GTiff "
+                   "{input_raster} {output_raster}")
+    
+    # Fill the command pattern with parameters
+    cmd = cmd_pattern.format(minx=minx, miny=miny, maxx=maxx, maxy=maxy,
+                             input_raster=input_raster, output_raster=output_raster,
+                             src_epsg=src_epsg, dst_epsg=dst_epsg)
+    
+    # Print and execute the command
+    print(cmd)
+    os.system(cmd)
+
+def preparation(releves, bands, emprise, liste_img):
+    """
+    Prepares Sentinel-2 images by reprojecting, masking, and storing them in a list.
+    Args:
+        releves (list): List of Sentinel-2 acquisition identifiers.
+        bands (list): List of band indices to process.
+        emprise (str): Path to the raster defining the study extent.
+        liste_img (list): List to store processed image arrays.
+    """
+    suffixe = '.tif'
+    minx, miny, maxx, maxy = get_img_extend(emprise)
+    src_epsg = 32631  # EPSG 32631 (UTM zone 31N)
+    dst_epsg = 2154   # EPSG 2154 (RGF93 / Lambert-93)
+
+    for r in releves:
+        for B in bands:
+            # Construct file paths
+            band_name = f'data/images/SENTINEL2{r}{B}'
+            band_file = f'{band_name}{suffixe}'
+            output_filename = f"{band_name}_10_2154{suffixe}"
+            
+            # Reproject the raster
+            reproject_raster(minx, miny, maxx, maxy, band_file, output_filename, src_epsg, dst_epsg)
+            
+            # Load reprojected image and apply the forest mask
+            band_reproj = rw.load_img_as_array(output_filename)
+            masque_foret = rw.load_img_as_array(forest).astype('bool')
+            band_masked = band_reproj.copy()
+            band_masked[~masque_foret] = 0
+            
+            # Append the masked band to the list
+            liste_img.append(band_masked)
+
+def nodata(input_raster, output_raster):
+    """
+    Sets the no-data value of a raster to 0.
+    Args:
+        input_raster (str): Path to the input raster file.
+        output_raster (str): Path to the output raster file.
+    """
+    # Define the command pattern for setting no-data value
+    cmd_pattern = ("gdal_translate -a_nodata 0 "
+                   "-of GTiff "
+                   "{input_raster} {output_raster}")
+    
+    # Fill the command with the parameters
+    cmd = cmd_pattern.format(input_raster=input_raster, output_raster=output_raster)
+    
+    # Print and execute the command
+    print(cmd)
+    os.system(cmd)
+
 def rasterize_emprise(in_vector, out_image, field_name, sptial_resolution):
     """
     Rasterizes a vector layer based on a specified field and spatial resolution.
