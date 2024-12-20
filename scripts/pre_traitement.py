@@ -9,8 +9,8 @@ from my_function import (
 )
 
 # Définition des paramètres
-dirname = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees'  # Dossier contenant l'image d'entrée
-out_dirname = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees'  # Dossier de sortie
+dirname = '/home/onyxia/work/images'  # Dossier contenant l'image d'entrée
+out_dirname = '/home/onyxia/work/images'  # Dossier de sortie
 filename = os.path.join(dirname, 'Serie_temp_S2_allbands.tif')  # Nom du fichier d'entrée
 out_ndvi_filename = os.path.join(out_dirname, 'Serie_temp_S2_ndvi.tif')  # Nom du fichier de sortie
 

@@ -6,8 +6,157 @@ from osgeo import gdal
 from rasterstats import zonal_stats
 import seaborn as sns
 import sys
+import os
 sys.path.append('libsigma/')
 import read_and_write as rw
+
+def rasterize_emprise(in_vector, out_image, field_name, sptial_resolution):
+    """
+    Rasterizes a vector layer based on a specified field and spatial resolution.
+    Args:
+        in_vector (str): Path to the input vector file.
+        out_image (str): Path to the output raster file.
+        field_name (str): Name of the field to rasterize.
+        sptial_resolution (float): Spatial resolution for the output raster.
+    """
+    # Define the command pattern for rasterization
+    cmd_pattern = ("gdal_rasterize -a {field_name} "
+                   "-tr {sptial_resolution} {sptial_resolution} "
+                   "-ot Byte -of GTiff "
+                   "-a_nodata 0 "
+                   "{in_vector} {out_image}")
+    
+    # Format the command with provided parameters
+    cmd = cmd_pattern.format(in_vector=in_vector, out_image=out_image,
+                             field_name=field_name, sptial_resolution=sptial_resolution)
+    
+    # Print and execute the command
+    print(cmd)
+    os.system(cmd)
+
+def get_img_extend(image_filename):
+    """
+    Retrieves the geographic extent of an image file.
+    Args:
+        image_filename (str): Path to the image file.
+    Returns:
+        tuple: (minx, miny, maxx, maxy) geographic extent of the image.
+    """
+    # Open the image file using GDAL
+    dataset = gdal.Open(image_filename)
+    
+    # Get the geotransform for spatial information
+    geotransform = dataset.GetGeoTransform()
+    minx = geotransform[0]
+    maxy = geotransform[3]
+    maxx = minx + geotransform[1] * dataset.RasterXSize
+    miny = maxy + geotransform[5] * dataset.RasterYSize
+    
+    return minx, miny, maxx, maxy
+
+def code_vege(shapefile_path_vege, shapefile_path_emprise, output_path):
+    """
+    Processes a vegetation shapefile and assigns codes and names based on a predefined mapping.
+    Clips the processed shapefile to a given extent and saves the output.
+    Args:
+        shapefile_path_vege (str): Path to the vegetation shapefile.
+        shapefile_path_emprise (str): Path to the extent shapefile.
+        output_path (str): Path to save the processed shapefile.
+    """
+    # Load the vegetation and extent shapefiles
+    gdf_vegetation = gpd.read_file(shapefile_path_vege)
+    gdf_emprise = gpd.read_file(shapefile_path_emprise)
+    
+    # Add empty columns for names and codes
+    gdf_vegetation['nom'] = None
+    gdf_vegetation['code'] = None
+
+    # Define a mapping dictionary for assigning values based on the 'CODE_TFV' field
+    mapping = {
+        "FF1-49-49": ("Autres feuillus", "11"),
+        "FF1-10-10": ("Autres feuillus", "11"),
+        "FF1-09-09": ("Autres feuillus", "11"),
+        "FF1G01-01": ("Chêne", "12"),
+        "FF1-14-14": ("Robinier", "13"),
+        "FP": ("Peupleraie", "14"),
+        "FF1-00-00": ("Mélange de feuillus", "15"), 
+        "FF1-00": ("Feuillus en îlots", "16"),
+        "FF2-91-91": ("Autres conifères autre que pin", "21"),
+        "FF2-63-63": ("Autres conifères autre que pin", "21"),
+        "FF2G61-61": ("Autres conifères autre que pin", "21"),
+        "FF2-90-90": ("Autres conifères autre que pin", "21"),
+        "FF2-81-81": ("Autres Pin", "22"),
+        "FF2-52-52": ("Autres Pin", "22"),
+        "FF2-80-80": ("Autres Pin", "22"),
+        "FF2-64-64": ("Douglas", "23"),
+        "FF2G53-53": ("Pin laricio ou pin noir", "24"),
+        "FF2-51-51": ("Pin maritime", "25"),
+        "FF2-00-00": ("Mélange conifères", "26"),
+        "FF2-00": ("Conifères en îlots", "27"),
+        "FF32": ("Mélange de conifères prépondérants et feuillus", "28"),
+        "FF31": ("Mélange de feuillus prépondérants et conifères", "29"),
+    }
+
+    # Map values to the 'nom' and 'code' columns
+    gdf_vegetation['nom'] = gdf_vegetation['CODE_TFV'].map(lambda x: mapping[x][0] if x in mapping else None)
+    gdf_vegetation['code'] = gdf_vegetation['CODE_TFV'].map(lambda x: mapping[x][1] if x in mapping else None)
+    
+    # Remove rows with missing codes
+    gdf_vegetation = gdf_vegetation.dropna(subset=['code'])
+    
+    # Clip the vegetation shapefile to the extent
+    vege_emprise = gpd.clip(gdf_vegetation, gdf_emprise)
+    
+    # Save the processed shapefile
+    vege_emprise.to_file(output_path)
+
+def rasterize(in_vector, out_image, field_name, sptial_resolution, emprise):
+    """
+    Rasterizes a vector layer with a specified extent, field, and spatial resolution.
+    Args:
+        in_vector (str): Path to the input vector file.
+        out_image (str): Path to the output raster file.
+        field_name (str): Name of the field to rasterize.
+        sptial_resolution (float): Spatial resolution for the output raster.
+        emprise (str): Path to the vector file defining the extent.
+    """
+    # Get the extent of the emprise (bounding box)
+    minx, miny, maxx, maxy = get_img_extend(emprise)
+    
+    # Define the command pattern for rasterization
+    cmd_pattern = ("gdal_rasterize -a {field_name} "
+                   "-te {minx} {miny} {maxx} {maxy} "
+                   "-tr {sptial_resolution} {sptial_resolution} "
+                   "-ot Byte -of GTiff "
+                   "-a_nodata 0 "
+                   "{in_vector} {out_image}")
+    
+    # Format the command with provided parameters
+    cmd = cmd_pattern.format(minx=minx, miny=miny, maxx=maxx, maxy=maxy,
+                             in_vector=in_vector, out_image=out_image,
+                             field_name=field_name, sptial_resolution=sptial_resolution)
+    
+    # Print and execute the command
+    print(cmd)
+    os.system(cmd)
+
+def masque(input_image, output_masque):
+    """
+    Generates a mask from an input image where non-zero values are retained.
+    Args:
+        input_image (str): Path to the input raster file.
+        output_masque (str): Path to save the mask raster file.
+    """
+    # Open the input image and load it as a numpy array
+    data_set = rw.open_image(input_image)
+    img = rw.load_img_as_array(input_image)
+    
+    # Create a binary mask where values are non-zero
+    masque_foret = img != 0
+    
+    # Write the mask to an output file
+    rw.write_image(output_masque, masque_foret, data_set=data_set,
+                   gdal_dtype=data_type_match['uint8'])
 
 def load_shapefile(file_path):
     """

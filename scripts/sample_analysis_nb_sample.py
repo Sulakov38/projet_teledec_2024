@@ -23,14 +23,14 @@ filtered_gdf = filter_polygons_by_code(gdf, code_column, allowed_codes)
 class_counts = calculate_polygons_per_class(filtered_gdf, class_column)
 output_poly_path = "/home/onyxia/work/projet_teledec_2024/results/figure/diag_baton_nb_poly_by_class.png"
 create_bar_chart_matplotlib(class_counts, output_poly_path)
-print("Diagramme en bâton créé et enregistré avec succès !")
+print(f"Diagramme en bâton créé et enregistré dans {output_poly_path}")
 
 # Analyze pixels per class and create bar chart
 output_pix_path = "/home/onyxia/work/projet_teledec_2024/results/figure/diag_baton_nb_pix_by_class.png"
 pixels_per_class(raster_path, shapefile_path, output_pix_path)
-print("Diagramme en bâton créé et enregistré avec succès !")
+print(f"Diagramme en bâton créé et enregistré dans {output_pix_path}")
 
 # Compute pixel distribution and create violin plot
 output_violin_path = "/home/onyxia/work/projet_teledec_2024/results/figure/violin_plot_nb_pix_par_poly_par_classe.png"
 pixels_per_polygons_per_class(raster_path, shapefile_path, output_violin_path)
-print("Diagramme en violon créé et enregistré avec succès !")
+print(f"Diagramme en violon créé et enregistré dans {output_violin_path}")
