@@ -57,7 +57,7 @@ def preparation(releves, bands, emprise, forest):
     for r in releves:
         for B in bands:
             # Construct file paths
-            band_name = f'/home/onyxia/work/data/images//SENTINEL2{r}{B}'
+            band_name = f'/home/onyxia/work/data/images/SENTINEL2{r}{B}'
             band_file = f'{band_name}{suffixe}'
             output_filename = f"{band_name}_10_2154{suffixe}"
             
