@@ -193,7 +193,7 @@ def code_vege(shapefile_path_vege, shapefile_path_emprise, output_path):
     # Save the processed shapefile
     vege_emprise.to_file(output_path)
 
-def rasterize(in_vector, out_image, field_name, sptial_resolution, emprise):
+def rasterize(in_vector, out_image, field_name, sptial_resolution, emprise, type_data):
     """
     Rasterizes a vector layer with a specified extent, field, and spatial resolution.
     Args:
@@ -208,16 +208,15 @@ def rasterize(in_vector, out_image, field_name, sptial_resolution, emprise):
     
     # Define the command pattern for rasterization
     cmd_pattern = ("gdal_rasterize -a {field_name} "
-                   "-te {minx} {miny} {maxx} {maxy} "
-                   "-tr {sptial_resolution} {sptial_resolution} "
-                   "-ot Byte -of GTiff "
-                   "-a_nodata 0 "
-                   "{in_vector} {out_image}")
+                    "-te {minx} {miny} {maxx} {maxy} "
+                    "-tr {sptial_resolution} {sptial_resolution} "
+                    "-ot {type_data} -of GTiff "
+                    "-a_nodata 0 "
+                    "{in_vector} {out_image}")
     
-    # Format the command with provided parameters
-    cmd = cmd_pattern.format(minx=minx, miny=miny, maxx=maxx, maxy=maxy,
-                             in_vector=in_vector, out_image=out_image,
-                             field_name=field_name, sptial_resolution=sptial_resolution)
+    # fill the string with the parameter thanks to format function
+    cmd = cmd_pattern.format(minx=minx,miny=miny,maxx=maxx,maxy=maxy,in_vector=in_vector, out_image=out_image, 
+                            field_name=field_name,sptial_resolution=sptial_resolution,type_data=type_data)
     
     # Print and execute the command
     print(cmd)
@@ -381,6 +380,64 @@ def pixels_per_polygons_per_class(raster_path, shapefile_path, output_violin_pat
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.savefig(output_violin_path)
+
+def pixels_per_polygons_per_class1(shapefile_path, output_path, emprise):
+
+    # Chargement du shapefile
+    shapefile = gpd.read_file(shapefile_path)
+    allowed_codes = [11, 12, 13, 14, 21, 22, 23, 24, 25]
+    shapefile["code"] = shapefile["code"].astype(int)
+    shapefile = shapefile[shapefile["code"].isin(allowed_codes)]
+    shapefile["unique_id"] = range(1, len(shapefile) + 1)
+    output_shp = '/home/onyxia/work/projet_teledec_2024/results/data/sample/output_shp.shp'
+    shapefile.to_file(output_shp)
+
+    field = "unique_id"
+    output_tif = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/classif_pixel.tif'
+    resolution = 10
+    type_data = 'Uint16'
+    rasterize(output_shp, output_tif, field, resolution, emprise, type_data)
+    array = rw.load_img_as_array(output_tif)
+    counts = np.bincount(array.flatten())
+
+    os.remove(output_tif)
+
+    # Ajout de l'information "nombre_pixels" au GeoDataFrame
+    shapefile["nombre_pixels"] = shapefile["unique_id"].apply(lambda x: counts[x] if x < len(counts) else 0)
+
+    # Préparation des données pour le diagramme en violon
+    unique_noms = shapefile["nom"].unique()
+    data_for_violin = [shapefile.loc[shapefile["nom"] == n, "nombre_pixels"].values for n in unique_noms]
+
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    # Création du diagramme en violon
+    parts = ax.violinplot(data_for_violin, showmeans=True, showmedians=True, showextrema=True)
+
+    # Paramétrages de l'axe et des titres
+    ax.set(
+        yscale='log',
+        title="Distribution du nombre de pixels par polygone pour chaque essence d'arbres",
+        xlabel="Essences d'arbres",
+        ylabel="Nombre de pixels par polygone (Échelle logarithmique)"
+    )
+
+    # Ajustement des labels de l'axe X
+    ax.set_xticks(np.arange(1, len(unique_noms) + 1))
+    ax.set_xticklabels(unique_noms, rotation=45, ha='right')
+
+    # Personnalisation des violons
+    for violin_body in parts['bodies']:
+        violin_body .set(facecolor='skyblue', edgecolor='black', alpha=0.7)
+
+    # Personnalisation des lignes (médianes, moyennes, barres)
+    for line_type in ['cmeans', 'cmedians', 'cbars', 'cmins', 'cmaxes']:
+        parts[line_type].set(lw=0.5, ls='--', color='black')
+
+    plt.tight_layout()
+    plt.savefig(output_path)
+
+
 
 # Dictionnaire de correspondance entre les types de données et GDAL
 data_type_match = {

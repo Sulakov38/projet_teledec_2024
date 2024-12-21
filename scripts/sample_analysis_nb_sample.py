@@ -4,12 +4,15 @@ from my_function import (
     calculate_polygons_per_class,
     create_bar_chart_matplotlib,
     pixels_per_class,
-    pixels_per_polygons_per_class
+    pixels_per_polygons_per_class,
+    pixels_per_polygons_per_class1
+
 )
 
 # Paths and parameters
 shapefile_path = "/home/onyxia/work/projet_teledec_2024/results/data/sample/Sample_BD_foret_T31TCJ.shp"
 raster_path = "/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/raster.tif"
+emprise = "/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/emprise.tif"
 code_column = "code"
 class_column = "nom"
 allowed_codes = [11, 12, 13, 14, 21, 22, 23, 24, 25]
@@ -32,5 +35,5 @@ print(f"Diagramme en bâton créé et enregistré dans {output_pix_path}")
 
 # Compute pixel distribution and create violin plot
 output_violin_path = "/home/onyxia/work/projet_teledec_2024/results/figure/violin_plot_nb_pix_par_poly_par_classe.png"
-pixels_per_polygons_per_class(raster_path, shapefile_path, output_violin_path)
+pixels_per_polygons_per_class1(shapefile_path, output_violin_path, emprise)
 print(f"Diagramme en violon créé et enregistré dans {output_violin_path}")

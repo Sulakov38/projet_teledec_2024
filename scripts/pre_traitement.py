@@ -39,6 +39,7 @@ rw.write_image(output_img, img, data_set=data_set)
 input_raster = '/home/onyxia/work/data/images/Serie_temp_S2_allbands_concat.tif'
 output_raster = '/home/onyxia/work/data/images/Serie_temp_S2_allbands.tif'
 nodata(input_raster, output_raster, 0)
+os.remove(input_raster)
 
 print(f"L'image Concaténé a été enregistrée dans {output_raster}")
 
@@ -83,5 +84,7 @@ ndvi_stack = np.array(ndvi_stack)
 write_image(out_ndvi_concat, ndvi_stack, reference_ds=data_set, gdal_dtype=data_type_match['float32'])
 
 out_ndvi_filename = os.path.join(out_dirname, 'Serie_temp_S2_ndvi.tif')  # Nom du fichier de sortie
-nodata(out_ndvi_concat,out_ndvi_filename,-9999)
+nodata(out_ndvi_concat, out_ndvi_filename, -9999)
+os.remove(out_ndvi_concat)
+
 print(f"L'image NDVI a été enregistrée dans {out_ndvi_filename}")
