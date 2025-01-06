@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from osgeo import gdal
 from rasterstats import zonal_stats
-import seaborn as sns
 import os
 import sys
 sys.path.append('/home/onyxia/work/libsigma/')
@@ -342,7 +341,7 @@ def pixels_per_class(input_image, shapefile_path, output_pix_path):
     plt.savefig(output_pix_path)
     plt.close()
 
-def pixels_per_polygons_per_class(raster_path, shapefile_path, output_violin_path):
+def pixels_per_polygons_per_class(shapefile_path, output_path, emprise):
     """
     Computes and visualizes the pixel distribution per polygon for each class.
     Args:
@@ -350,39 +349,6 @@ def pixels_per_polygons_per_class(raster_path, shapefile_path, output_violin_pat
         shapefile_path (str): Path to the shapefile containing class information.
         output_violin_path (str): Path to save the output violin plot.
     """
-    # Load raster and shapefile
-    data_set = rw.open_image(raster_path)
-    img = rw.load_img_as_array(raster_path)
-    shapefile = gpd.read_file(shapefile_path)
-
-    # Filter shapefile by allowed codes
-    allowed_codes = [11, 12, 13, 14, 21, 22, 23, 24, 25]
-    shapefile["code"] = shapefile["code"].astype(int)
-    shapefile = shapefile[shapefile["code"].isin(allowed_codes)]
-
-    # Compute pixel counts per polygon
-    stats = zonal_stats(
-        shapefile,
-        raster_path,
-        stats=['count'],
-        nodata=0
-    )
-    stats_df = pd.DataFrame(stats)
-    shapefile["nombre_pixels"] = stats_df["count"]
-
-    # Create a violin plot for pixel distribution
-    plt.figure(figsize=(14, 8))
-    sns.violinplot(x="nom", y="nombre_pixels", data=shapefile, cut=0, scale="width", inner="quartile", linewidth=1.2, color='skyblue')
-    plt.yscale("log")
-    plt.title("Distribution du nombre de pixels par polygone pour chaque essences d'arbres")
-    plt.xlabel("Essences d'arbres")
-    plt.ylabel("Nombre de pixels par polygone (Echelle logarithmique)")
-    plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.savefig(output_violin_path)
-
-def pixels_per_polygons_per_class1(shapefile_path, output_path, emprise):
-
     # Chargement du shapefile
     shapefile = gpd.read_file(shapefile_path)
     allowed_codes = [11, 12, 13, 14, 21, 22, 23, 24, 25]
@@ -436,8 +402,6 @@ def pixels_per_polygons_per_class1(shapefile_path, output_path, emprise):
 
     plt.tight_layout()
     plt.savefig(output_path)
-
-
 
 # Dictionnaire de correspondance entre les types de données et GDAL
 data_type_match = {

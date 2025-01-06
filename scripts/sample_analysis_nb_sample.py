@@ -4,9 +4,7 @@ from my_function import (
     calculate_polygons_per_class,
     create_bar_chart_matplotlib,
     pixels_per_class,
-    pixels_per_polygons_per_class,
-    pixels_per_polygons_per_class1
-
+    pixels_per_polygons_per_class
 )
 
 # Paths and parameters
@@ -34,6 +32,6 @@ pixels_per_class(raster_path, shapefile_path, output_pix_path)
 print(f"Diagramme en bâton créé et enregistré dans {output_pix_path}")
 
 # Compute pixel distribution and create violin plot
-output_violin_path = "/home/onyxia/work/projet_teledec_2024/results/figure/violin_plot_nb_pix_par_poly_par_classe.png"
-pixels_per_polygons_per_class1(shapefile_path, output_violin_path, emprise)
+output_violin_path = "/home/onyxia/work/projet_teledec_2024/results/figure/violin_plot_nb_pix_par_poly_par_class.png"
+pixels_per_polygons_per_class(shapefile_path, output_violin_path, emprise)
 print(f"Diagramme en violon créé et enregistré dans {output_violin_path}")
