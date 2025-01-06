@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from osgeo import gdal
 from rasterstats import zonal_stats
+from matplotlib.lines import Line2D
 import os
 import sys
 sys.path.append('/home/onyxia/work/libsigma/')
@@ -413,6 +414,162 @@ data_type_match = {
     'float32': gdal.GDT_Float32,
     'float64': gdal.GDT_Float64,
 }
+
+def load_raster_as_array(raster_path):
+    """
+    Load a raster as a NumPy array using GDAL.
+
+    Args:
+        raster_path (str): Path to the raster file.
+
+    Returns:
+        np.ndarray: Array containing raster data. If multiple bands exist, a 3D array is returned.
+    """
+    dataset = gdal.Open(raster_path)
+    array = []
+    for i in range(1, dataset.RasterCount + 1):  # Read all bands
+        band = dataset.GetRasterBand(i)
+        array.append(band.ReadAsArray())
+    return np.array(array) if dataset.RasterCount > 1 else np.array(array[0])
+
+def reorder_ndvi(ndvi, reordered_indices):
+    """
+    Reorder NDVI bands based on specified indices.
+
+    Args:
+        ndvi (np.ndarray): NDVI array with bands as the first dimension.
+        reordered_indices (list): List of indices specifying the new order.
+
+    Returns:
+        np.ndarray: Reordered NDVI array.
+    """
+    return ndvi[reordered_indices]
+
+def compute_class_statistics(ndvi, classes, selected_classes, band_dates):
+    """
+    Compute mean and standard deviation of NDVI for each class and temporal band.
+
+    Args:
+        ndvi (np.ndarray): NDVI data as a 3D array (bands, rows, columns).
+        classes (np.ndarray): Class data as a 2D array.
+        selected_classes (list): List of selected classes.
+        band_dates (list): List of dates corresponding to each band.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the computed statistics.
+    """
+    results = []
+    for band_idx in range(ndvi.shape[0]):
+        band_data = ndvi[band_idx]
+        for cls in selected_classes:
+            class_mask = (classes == cls)
+            masked_ndvi = band_data[class_mask]
+
+            mean_ndvi = np.mean(masked_ndvi)
+            std_ndvi = np.std(masked_ndvi)
+
+            results.append({
+                "class": cls,
+                "band": band_dates[band_idx],
+                "mean": mean_ndvi,
+                "std": std_ndvi
+            })
+    return pd.DataFrame(results)
+
+def map_class_names(results_df, shapefile_path):
+    """
+    Map class codes to names using a shapefile.
+
+    Args:
+        results_df (pd.DataFrame): DataFrame containing class codes.
+        shapefile_path (str): Path to the shapefile with class names.
+
+    Returns:
+        pd.DataFrame: Updated DataFrame with class names.
+    """
+    shapefile = gpd.read_file(shapefile_path)
+    shapefile["code"] = shapefile["code"].astype(int)
+    code_to_name = dict(zip(shapefile["code"], shapefile["nom"]))
+    results_df["class_name"] = results_df["class"].map(code_to_name)
+    return results_df
+
+def create_class_to_color_mapping(classes, colormap):
+    """
+    Create a dictionary mapping classes to unique colors.
+
+    Args:
+        classes (list): List of classes.
+        colormap (list): List of colors.
+
+    Returns:
+        dict: Dictionary mapping each class to a specific color.
+    """
+    return {cls: colormap[i % len(colormap)] for i, cls in enumerate(classes)}
+
+def plot_ndvi_results(results_df, selected_classes, class_to_color, code_to_name, output_path):
+    """
+    Plot the NDVI results with mean and standard deviation for each class.
+
+    Args:
+        results_df (pd.DataFrame): DataFrame containing NDVI results.
+        selected_classes (list): List of selected classes.
+        class_to_color (dict): Mapping of classes to colors.
+        code_to_name (dict): Mapping of class codes to names.
+        output_path (str): Path to save the output plot.
+    """
+    plt.figure(figsize=(12, 8))
+
+    # Plot curves for each class
+    for cls in selected_classes:
+        class_data = results_df[results_df["class"] == cls]
+        color = class_to_color[cls]
+
+        # Plot mean
+        plt.plot(
+            class_data["band"],
+            class_data["mean"],
+            marker="o",
+            color=color,
+        )
+        # Plot standard deviation
+        plt.plot(
+            class_data["band"],
+            class_data["std"],
+            marker="x",
+            linestyle="--",
+            color=color,
+        )
+
+    # Build custom legend
+    custom_legend = [
+        Line2D([0], [0], color=class_to_color[cls], marker="o", linestyle="-", label=f"{code_to_name[cls]}")
+        for cls in selected_classes
+    ]
+
+    # Add legend styles for mean and std
+    legend_title = [
+        Line2D([0], [0], color="black", marker="o", label="Moyenne"),
+        Line2D([0], [0], color="black", linestyle="--", marker="x", label="Ecart type"),
+    ]
+
+    # Configure legend
+    plt.legend(
+        handles=legend_title + custom_legend,
+        title="Essences d'arbres",
+        loc="center",
+        frameon=True,
+        framealpha=0.8,
+        fontsize=10
+    )
+
+    # Configure plot
+    plt.title("Signature temporelle de la moyenne et de l'écart type du NDVI par classe")
+    plt.xlabel("Dates")
+    plt.ylabel("NDVI")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
 
 # Fonction pour charger une image en tant que tableau numpy
 def load_img_as_array(filename):
