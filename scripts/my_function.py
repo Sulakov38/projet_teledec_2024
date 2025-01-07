@@ -10,6 +10,18 @@ import sys
 sys.path.append('/home/onyxia/work/libsigma/')
 import read_and_write as rw
 
+# Dictionnaire de correspondance entre les types de données et GDAL
+data_type_match = {
+    'uint8': gdal.GDT_Byte,
+    'uint16': gdal.GDT_UInt16,
+    'uint32': gdal.GDT_UInt32,
+    'int16': gdal.GDT_Int16,
+    'int32': gdal.GDT_Int32,
+    'float32': gdal.GDT_Float32,
+    'float64': gdal.GDT_Float64,
+}
+
+
 def reproject_raster(minx, miny, maxx, maxy, input_raster, output_raster, src_epsg, dst_epsg):
     """
     Reprojects and clips a raster to a new coordinate reference system and extent.
@@ -301,27 +313,22 @@ def create_bar_chart_matplotlib(data, output_poly_path):
     plt.savefig(output_poly_path)
     plt.close()
 
-def pixels_per_class(input_image, shapefile_path, output_pix_path):
+def pixels_per_class(input_image, dataframe, output_pix_path):
     """
     Analyzes the number of pixels for each class in a raster and generates a bar chart.
     Args:
         input_image (str): Path to the raster image.
-        shapefile_path (str): Path to the shapefile containing class information.
+        dataframe (str): Path to the GeoDataFrame containing class information.
         output_pix_path (str): Path to save the output bar chart.
     """
     # Load raster and compute unique pixel values
-    data_set = rw.open_image(input_image)
     img = rw.load_img_as_array(input_image)
     unique_values, counts = np.unique(img, return_counts=True)
 
-    # Load and filter shapefile
-    shapefile = gpd.read_file(shapefile_path)
-    allowed_codes = [11, 12, 13, 14, 21, 22, 23, 24, 25]
-    shapefile["code"] = shapefile["code"].astype(int)
-    shapefile = shapefile[shapefile["code"].isin(allowed_codes)]
+    dataframe["code"] = dataframe["code"].astype(int)
 
     # Map codes to class names
-    code_to_name = dict(zip(shapefile["code"], shapefile["nom"]))
+    code_to_name = dict(zip(dataframe["code"], dataframe["nom"]))
     data = pd.DataFrame({"code": unique_values, "count": counts})
     data["name"] = data["code"].map(code_to_name)
     data = data.dropna(subset=["name"])  # Remove unmatched codes
@@ -342,39 +349,34 @@ def pixels_per_class(input_image, shapefile_path, output_pix_path):
     plt.savefig(output_pix_path)
     plt.close()
 
-def pixels_per_polygons_per_class(shapefile_path, output_path, emprise):
+def pixels_per_polygons_per_class(dataframe, output_path, emprise):
     """
     Computes and visualizes the pixel distribution per polygon for each class.
     Args:
         raster_path (str): Path to the raster image.
-        shapefile_path (str): Path to the shapefile containing class information.
+        dataframe (str): Path to the GeoDataFrame containing class information.
         output_violin_path (str): Path to save the output violin plot.
     """
-    # Chargement du shapefile
-    shapefile = gpd.read_file(shapefile_path)
-    allowed_codes = [11, 12, 13, 14, 21, 22, 23, 24, 25]
-    shapefile["code"] = shapefile["code"].astype(int)
-    shapefile = shapefile[shapefile["code"].isin(allowed_codes)]
-    shapefile["unique_id"] = range(1, len(shapefile) + 1)
+
+    dataframe["code"] = dataframe["code"].astype(int)
+    dataframe["unique_id"] = range(1, len(dataframe) + 1)
     output_shp = '/home/onyxia/work/projet_teledec_2024/results/data/sample/output_shp.shp'
-    shapefile.to_file(output_shp)
+    dataframe.to_file(output_shp)
 
     field = "unique_id"
-    output_tif = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/classif_pixel.tif'
+    output_tif = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/forest_id.tif'
     resolution = 10
     type_data = 'Uint16'
     rasterize(output_shp, output_tif, field, resolution, emprise, type_data)
     array = rw.load_img_as_array(output_tif)
     counts = np.bincount(array.flatten())
 
-    os.remove(output_tif)
-
     # Ajout de l'information "nombre_pixels" au GeoDataFrame
-    shapefile["nombre_pixels"] = shapefile["unique_id"].apply(lambda x: counts[x] if x < len(counts) else 0)
+    dataframe["nombre_pixels"] = dataframe["unique_id"].apply(lambda x: counts[x] if x < len(counts) else 0)
 
     # Préparation des données pour le diagramme en violon
-    unique_noms = shapefile["nom"].unique()
-    data_for_violin = [shapefile.loc[shapefile["nom"] == n, "nombre_pixels"].values for n in unique_noms]
+    unique_noms = dataframe["nom"].unique()
+    data_for_violin = [dataframe.loc[dataframe["nom"] == n, "nombre_pixels"].values for n in unique_noms]
 
     fig, ax = plt.subplots(figsize=(14, 8))
 
@@ -404,17 +406,6 @@ def pixels_per_polygons_per_class(shapefile_path, output_path, emprise):
     plt.tight_layout()
     plt.savefig(output_path)
 
-# Dictionnaire de correspondance entre les types de données et GDAL
-data_type_match = {
-    'uint8': gdal.GDT_Byte,
-    'uint16': gdal.GDT_UInt16,
-    'uint32': gdal.GDT_UInt32,
-    'int16': gdal.GDT_Int16,
-    'int32': gdal.GDT_Int32,
-    'float32': gdal.GDT_Float32,
-    'float64': gdal.GDT_Float64,
-}
-
 def load_raster_as_array(raster_path):
     """
     Load a raster as a NumPy array using GDAL.
@@ -431,19 +422,6 @@ def load_raster_as_array(raster_path):
         band = dataset.GetRasterBand(i)
         array.append(band.ReadAsArray())
     return np.array(array) if dataset.RasterCount > 1 else np.array(array[0])
-
-def reorder_ndvi(ndvi, reordered_indices):
-    """
-    Reorder NDVI bands based on specified indices.
-
-    Args:
-        ndvi (np.ndarray): NDVI array with bands as the first dimension.
-        reordered_indices (list): List of indices specifying the new order.
-
-    Returns:
-        np.ndarray: Reordered NDVI array.
-    """
-    return ndvi[reordered_indices]
 
 def compute_class_statistics(ndvi, classes, selected_classes, band_dates):
     """

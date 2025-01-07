@@ -28,10 +28,10 @@ print(f"Diagramme en bâton créé et enregistré dans {output_poly_path}")
 
 # Analyze pixels per class and create bar chart
 output_pix_path = "/home/onyxia/work/projet_teledec_2024/results/figure/diag_baton_nb_pix_by_class.png"
-pixels_per_class(raster_path, shapefile_path, output_pix_path)
+pixels_per_class(raster_path, filtered_gdf, output_pix_path)
 print(f"Diagramme en bâton créé et enregistré dans {output_pix_path}")
 
 # Compute pixel distribution and create violin plot
 output_violin_path = "/home/onyxia/work/projet_teledec_2024/results/figure/violin_plot_nb_pix_par_poly_par_class.png"
-pixels_per_polygons_per_class(shapefile_path, output_violin_path, emprise)
+pixels_per_polygons_per_class(filtered_gdf, output_violin_path, emprise)
 print(f"Diagramme en violon créé et enregistré dans {output_violin_path}")
