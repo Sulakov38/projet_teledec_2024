@@ -1,32 +1,26 @@
-import plots
-import os
-import numpy as np
-from sklearn.ensemble import RandomForestClassifier as RF
-from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, GroupKFold, StratifiedGroupKFold
-from sklearn.metrics import confusion_matrix, classification_report, \
-    accuracy_score
-import geopandas as gpd
-import pandas as pd
-import matplotlib.pyplot as plt
 from my_function import (
+    rasterize,
     make_id,
     filter_polygons_by_code,
     classif_pixel
 )
-import sys
-sys.path.append('/home/onyxia/work/libsigma/')
-import classification as cla
-import read_and_write as rw
+classif_shp = '/home/onyxia/work/projet_teledec_2024/results/data/sample/Sample_BD_foret_T31TCJ_classif.shp'
+classif_tif = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/Sample_BD_foret_T31TCJ_classif.tif'
+emprise = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/emprise.tif'
 
-shapefile = '/home/onyxia/work/projet_teledec_2024/results/data/sample/Sample_BD_foret_T31TCJ.shp'
-output_shp = '/home/onyxia/work/projet_teledec_2024/results/data/sample/Sample_BD_foret_T31TCJ_classif.shp'
+if os.path.exists(classif_tif):
+    print("Le fichier tif pour la classification existe déjà, on ne lance pas make_id().")
+else: 
+    shapefile = '/home/onyxia/work/projet_teledec_2024/results/data/sample/Sample_BD_foret_T31TCJ.shp'
+    gdf = gpd.read_file(shapefile)
+    code_column = "code"
+    allowed_codes = [11, 12, 13, 14, 21, 22, 23, 24, 25]
+    filtered_gdf = filter_polygons_by_code(gdf, code_column, allowed_codes)
+    filtered_gdf.to_file(classif_shp)
+    field_name = 'code'
+    type_data = 'Byte'
+    rasterize(classif_shp, classif_tif, field_name, 10, emprise, type_data)
 
-# Create filtered samples
-gdf = gpd.read_file(shapefile)
-code_column = "code"
-allowed_codes = [11, 12, 13, 14, 21, 22, 23, 24, 25]
-filtered_gdf = filter_polygons_by_code(gdf, code_column, allowed_codes)
-filtered_gdf.to_file(output_shp)
 
 # Create samples with ID if they didn't exist 
 emprise = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/emprise.tif'
@@ -40,4 +34,4 @@ else:
 
 image_filename = '/home/onyxia/work/data/images/Serie_temp_S2_allbands.tif'
 
-classif_pixel(image_filename, output_id_tif, 2, 5)
+classif_pixel(image_filename, classif_tif, output_id_tif, 2, 5)

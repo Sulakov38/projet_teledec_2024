@@ -1,14 +1,20 @@
-import matplotlib.pyplot as plt
-import geopandas as gpd
-import numpy as np
-import pandas as pd
-from osgeo import gdal
-from rasterstats import zonal_stats
-from matplotlib.lines import Line2D
 import os
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier as RF
+from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, GroupKFold, StratifiedGroupKFold
+from sklearn.metrics import confusion_matrix, classification_report, \
+    accuracy_score
+import geopandas as gpd
+import pandas as pd
+import matplotlib.pyplot as plt
+from osgeo import gdal
+from matplotlib.lines import Line2D
+
 import sys
 sys.path.append('/home/onyxia/work/libsigma/')
+import classification as cla
 import read_and_write as rw
+import plots
 
 # Dictionnaire de correspondance entre les types de données et GDAL
 data_type_match = {
@@ -620,7 +626,7 @@ def report_from_dict_to_df(dict_report):
 
     return report_df
 
-def classif_pixel(image_filename, id_filename, nb_iter, nb_folds):
+def classif_pixel(image_filename, sample_filename, id_filename, nb_iter, nb_folds):
 
     # outputs
     suffix = '_CV{}folds_stratified_group_x{}times'.format(nb_folds, nb_iter)
@@ -640,28 +646,28 @@ def classif_pixel(image_filename, id_filename, nb_iter, nb_folds):
 
     # Iter on stratified K fold
     for _ in range(nb_iter):
-    kf = StratifiedGroupKFold(n_splits=nb_folds, shuffle=True)
-    for train, test in kf.split(X, Y, groups=groups):
-        X_train, X_test = X[train], X[test]
-        Y_train, Y_test = Y[train], Y[test]
+        kf = StratifiedGroupKFold(n_splits=nb_folds, shuffle=True)
+        for train, test in kf.split(X, Y, groups=groups):
+            X_train, X_test = X[train], X[test]
+            Y_train, Y_test = Y[train], Y[test]
 
-        # 3 --- Train
-        #clf = SVC(cache_size=6000)
-        clf = RF(max_depth=50,oob_score=True,max_samples=0.75,class_weight='balanced')
-        clf.fit(X_train, Y_train)
+            # 3 --- Train
+            #clf = SVC(cache_size=6000)
+            clf = RF(max_depth=50,oob_score=True,max_samples=0.75,class_weight='balanced')
+            clf.fit(X_train, Y_train)
 
-        # 4 --- Test
-        Y_predict = clf.predict(X_test)
+            # 4 --- Test
+            Y_predict = clf.predict(X_test)
 
-        # compute quality
-        list_cm.append(confusion_matrix(Y_test, Y_predict))
-        list_accuracy.append(accuracy_score(Y_test, Y_predict))
-        report = classification_report(Y_test, Y_predict,
-                                        labels=np.unique(Y_predict),
-                                        output_dict=True)
+            # compute quality
+            list_cm.append(confusion_matrix(Y_test, Y_predict))
+            list_accuracy.append(accuracy_score(Y_test, Y_predict))
+            report = classification_report(Y_test, Y_predict,
+                                            labels=np.unique(Y_predict),
+                                            output_dict=True)
 
-        # store them
-        list_report.append(report_from_dict_to_df(report))
+            # store them
+            list_report.append(report_from_dict_to_df(report))
 
     # compute mean of cm
     array_cm = np.array(list_cm)
