@@ -1,3 +1,5 @@
+import os
+import geopandas as gpd
 from my_function import (
     rasterize,
     make_id,
