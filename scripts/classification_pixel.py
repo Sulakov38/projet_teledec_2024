@@ -40,4 +40,4 @@ else:
 
 image_filename = '/home/onyxia/work/data/images/Serie_temp_S2_allbands.tif'
 
-classif_pixel(image_filename, output_id_tif)
+classif_pixel(image_filename, output_id_tif, 2, 5)
