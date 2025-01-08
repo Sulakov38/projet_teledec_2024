@@ -45,7 +45,7 @@ print(f"L'image Concaténé a été enregistrée dans {output_raster}")
 
 # Définition des paramètres
 dirname = '/home/onyxia/work/data/images'  # Dossier contenant l'image d'entrée
-out_dirname = '/home/onyxia/work/data/images'  # Dossier de sortie
+out_dirname = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/'  # Dossier de sortie
 filename = os.path.join(dirname, 'Serie_temp_S2_allbands.tif')  # Nom du fichier d'entrée
 out_ndvi_concat = os.path.join(out_dirname, 'Serie_temp_S2_ndvi_concat.tif')  # Nom du fichier de sortie
 

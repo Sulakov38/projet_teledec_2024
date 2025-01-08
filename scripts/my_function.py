@@ -612,6 +612,7 @@ def compute_ndvi(red_band, nir_band):
     return np.nan_to_num(ndvi, nan=-9999)  # Remplace les NaN par -9999
 
 def report_from_dict_to_df(dict_report):
+
     # convert report into dataframe
     report_df = pd.DataFrame.from_dict(dict_report)
 
@@ -630,11 +631,10 @@ def classif_pixel(image_filename, sample_filename, id_filename, nb_iter, nb_fold
 
     # outputs
     suffix = '_CV{}folds_stratified_group_x{}times'.format(nb_folds, nb_iter)
-    out_folder = '/home/onyxia/work/results/'
+    out_folder = '/home/onyxia/work/data/'
     out_classif = os.path.join(out_folder, 'ma_classif{}.tif'.format(suffix))
     out_matrix = os.path.join(out_folder, 'ma_matrice{}.png'.format(suffix))
     out_qualite = os.path.join(out_folder, 'mes_qualites{}.png'.format(suffix))
-
 
     X, Y, t = cla.get_samples_from_roi(image_filename, sample_filename)
     _, groups, _ = cla.get_samples_from_roi(image_filename, id_filename)

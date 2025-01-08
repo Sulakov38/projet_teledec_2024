@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import geopandas as gpd
 
 # Paths to input and output files
-ndvi_path = "/home/onyxia/work/data/images/Serie_temp_S2_ndvi.tif"
+ndvi_path = "/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/Serie_temp_S2_ndvi.tif"
 classes_path = "/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/raster.tif"
 shapefile_path = "/home/onyxia/work/projet_teledec_2024/results/data/sample/Sample_BD_foret_T31TCJ.shp"
 output_path = "/home/onyxia/work/projet_teledec_2024/results/figure/temp_mean_ndvi.png"
