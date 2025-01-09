@@ -723,3 +723,17 @@ def classif_pixel(image_filename, sample_filename, id_filename, nb_iter, nb_fold
     ax.yaxis.grid(which='minor', color='darkgoldenrod', linestyle='-.',
                 linewidth=0.3, zorder=1)
     plt.savefig(out_qualite, bbox_inches='tight')
+
+    X_img, _, t_img = cla.get_samples_from_roi(image_filename, image_filename)
+    Y_predict = clf.predict(X_img)
+    ds = rw.open_image(image_filename)
+    nb_row, nb_col, _ = rw.get_image_dimension(ds)
+
+    #initialization of the array
+    img = np.zeros((nb_row, nb_col, 1), dtype='uint8')
+    #np.Y_predict
+
+    img[t_img[0], t_img[1], 0] = Y_predict
+    rw.write_image(out_classif, img, data_set=ds, gdal_dtype=None,
+                transform=None, projection=None, driver_name=None,
+                nb_col=None, nb_ligne=None, nb_band=1)
