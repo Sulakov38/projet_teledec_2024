@@ -737,3 +737,123 @@ def classif_pixel(image_filename, sample_filename, id_filename, nb_iter, nb_fold
     rw.write_image(out_classif, img, data_set=ds, gdal_dtype=None,
                 transform=None, projection=None, driver_name=None,
                 nb_col=None, nb_ligne=None, nb_band=1)
+
+def load_raster(file_path):
+    """
+    Load a raster file and return its data as a NumPy array.
+
+    Args:
+        file_path (str): Path to the raster file.
+
+    Returns:
+        np.ndarray: Array containing the raster data.
+    """
+    dataset = gdal.Open(file_path)
+    if not dataset:
+        raise FileNotFoundError(f"Unable to open file: {file_path}")
+    data = dataset.ReadAsArray()
+    return data
+
+def calculate_band_means(ndvi_data, mask):
+    """
+    Calculate the mean NDVI values for each band based on a mask.
+
+    Args:
+        ndvi_data (np.ndarray): NDVI data array (shape: [bands, height, width]).
+        mask (np.ndarray): Boolean mask indicating valid pixels.
+
+    Returns:
+        np.ndarray: Array of mean values for each band.
+    """
+    means = []
+    for band in range(ndvi_data.shape[0]):
+        band_data = ndvi_data[band, :, :]
+        means.append(np.mean(band_data[mask]))
+    return np.array(means)
+
+def calculate_distances(ndvi_data, band_means, mask):
+    """
+    Calculate the Euclidean distance of each pixel to the centroid for a given class.
+
+    Args:
+        ndvi_data (np.ndarray): NDVI data array (shape: [bands, height, width]).
+        band_means (np.ndarray): Array of mean values for each band.
+        mask (np.ndarray): Boolean mask indicating valid pixels.
+
+    Returns:
+        np.ndarray: Array of distances for the masked pixels.
+    """
+    distances = np.zeros(mask.shape, dtype=np.float32)
+    for band in range(ndvi_data.shape[0]):
+        distances += (ndvi_data[band, :, :] - band_means[band]) ** 2
+    distances = np.sqrt(distances)
+    return distances[mask]
+
+def plot_average_distances(average_distances, code_to_name, output_path):
+    """
+    Create a bar chart showing average distances to centroid for each class.
+
+    Args:
+        average_distances (dict): Dictionary of class IDs and their average distances.
+        code_to_name (dict): Mapping of class codes to names.
+        output_path (str): Path to save the plot.
+    """
+    # Replace class codes with names
+    class_names = [code_to_name[class_id] for class_id in average_distances.keys()]
+    values = list(average_distances.values())
+
+    # Plot bar chart
+    plt.bar(class_names, values, align='center', color='skyblue')
+    plt.xlabel("Essences d'arbres")
+    plt.ylabel("Distance moyenne au centroide")
+    plt.title("Distance moyenne au centroide par essences d'arbres")
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+def load_class_names(shapefile_path):
+    """
+    Load class names and their corresponding codes from a shapefile.
+
+    Args:
+        shapefile_path (str): Path to the shapefile.
+
+    Returns:
+        dict: Mapping of class codes to class names.
+    """
+    shapefile = gpd.read_file(shapefile_path)
+    shapefile["code"] = shapefile["code"].astype(int)
+    return dict(zip(shapefile["code"], shapefile["nom"]))
+
+def calculate_average_distances(ndvi_data, classes_data, classes_of_interest):
+    """
+    Calculate the average distances to the centroid for the given classes.
+
+    Args:
+        ndvi_data (np.ndarray): NDVI data array (shape: [bands, height, width]).
+        classes_data (np.ndarray): Class data array (shape: [height, width]).
+        classes_of_interest (list): List of class IDs to process.
+
+    Returns:
+        dict: Dictionary with class IDs as keys and average distances as values.
+    """
+    average_distances = {}
+
+    for class_id in classes_of_interest:
+        class_mask = classes_data == class_id
+        if not np.any(class_mask):
+            print(f"No pixels found for class {class_id}")
+            continue
+
+        # Calculate band means for the class
+        band_means = calculate_band_means(ndvi_data, class_mask)
+
+        # Calculate distances to centroid
+        distances = calculate_distances(ndvi_data, band_means, class_mask)
+
+        # Calculate average distance
+        average_distance = np.mean(distances)
+        average_distances[class_id] = average_distance
+
+    return average_distances
