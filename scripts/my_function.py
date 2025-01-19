@@ -738,6 +738,163 @@ def classif_pixel(image_filename, sample_filename, id_filename, nb_iter, nb_fold
                 transform=None, projection=None, driver_name=None,
                 nb_col=None, nb_ligne=None, nb_band=1)
 
+def classif_pixel_19(image_filename,sample_filename,id_filename,nb_folds):
+    suffix = '_CV{}folds_stratified_group'.format(nb_folds)
+    out_folder = '/home/onyxia/work/data/'
+    out_classif = os.path.join(out_folder, 'ma_classif2_{}.tif'.format(suffix))
+    out_matrix = os.path.join(out_folder, 'ma_matrice2_{}.png'.format(suffix))
+    out_qualite = os.path.join(out_folder, 'mes_qualites2_{}.png'.format(suffix))
+
+    X, Y, t = cla.get_samples_from_roi(image_filename, sample_filename)
+    _, groups, _ = cla.get_samples_from_roi(image_filename, id_filename)
+
+    groups = np.squeeze(groups)
+    # Iter on stratified K fold
+    kf = StratifiedGroupKFold(n_splits=nb_folds, shuffle=True)
+    for train, test in kf.split(X, Y, groups=groups):
+        X_train, X_test = X[train], X[test]
+        Y_train, Y_test = Y[train], Y[test]
+
+        # 3 --- Train
+        #clf = SVC(cache_size=6000)
+        clf = RF(max_depth=50, oob_score=True, max_samples=0.75, class_weight='balanced', n_jobs=50)
+        clf.fit(X_train, Y_train)
+
+        # 4 --- Test
+        Y_predict = clf.predict(X_test)
+
+        # compute quality
+    cm = confusion_matrix(Y_test, Y_predict)
+    report = classification_report(Y_test, Y_predict, labels=np.unique(Y_predict), output_dict=True)
+    accuracy = accuracy_score(Y_test, Y_predict)
+
+    # display and save quality
+    plots.plot_cm(cm, np.unique(Y_predict), out_filename=out_matrix)
+    plots.plot_class_quality(report, accuracy, out_filename=out_qualite)
+
+    X_img, _, t_img = cla.get_samples_from_roi(image_filename, image_filename)
+    Y_predict = clf.predict(X_img)
+    ds = rw.open_image(image_filename)
+    nb_row, nb_col, _ = rw.get_image_dimension(ds)
+
+    #initialization of the array
+    img = np.zeros((nb_row, nb_col, 1), dtype='uint8')
+    #np.Y_predict
+
+    img[t_img[0], t_img[1], 0] = Y_predict
+    rw.write_image(out_classif, img, data_set=ds, gdal_dtype=None,
+                transform=None, projection=None, driver_name=None,
+                nb_col=None, nb_ligne=None, nb_band=1)
+
+def classif_pixel_20(image_filename, sample_filename, id_filename, nb_folds, nb_iter):
+    suffix = '_CV{}folds_stratified_group'.format(nb_folds)
+    out_folder = '/home/onyxia/work/data/'
+    out_classif = os.path.join(out_folder, 'ma_classif2_{}.tif'.format(suffix))
+    out_matrix = os.path.join(out_folder, 'ma_matrice2_{}.png'.format(suffix))
+    out_qualite = os.path.join(out_folder, 'mes_qualites2_{}.png'.format(suffix))
+
+    X, Y, t = cla.get_samples_from_roi(image_filename, sample_filename)
+    _, groups, _ = cla.get_samples_from_roi(image_filename, id_filename)
+
+
+    list_cm = []
+    list_accuracy = []
+    list_report = []
+    groups = np.squeeze(groups)
+
+# Iter on stratified K fold
+    for _ in range(nb_iter):
+        kf = StratifiedGroupKFold(n_splits=nb_folds, shuffle=True)
+        for train, test in kf.split(X, Y, groups=groups):
+            X_train, X_test = X[train], X[test]
+            Y_train, Y_test = Y[train], Y[test]
+
+            # 3 --- Train
+            #clf = SVC(cache_size=6000)
+            clf = RF(max_depth=50, oob_score=True, max_samples=0.75, class_weight='balanced', n_jobs=50)
+            clf.fit(X_train, Y_train)
+
+            # 4 --- Test
+            Y_predict = clf.predict(X_test)
+
+            list_cm.append(confusion_matrix(Y_test, Y_predict))
+            list_accuracy.append(accuracy_score(Y_test, Y_predict))
+            report = classification_report(Y_test, Y_predict,
+                                            labels=np.unique(Y_predict),
+                                            output_dict=True)
+
+            # store them
+            list_report.append(report_from_dict_to_df(report))
+
+    # compute mean of cm
+    array_cm = np.array(list_cm)
+    mean_cm = array_cm.mean(axis=0)
+
+    # compute mean and std of overall accuracy
+    array_accuracy = np.array(list_accuracy)
+    mean_accuracy = array_accuracy.mean()
+    std_accuracy = array_accuracy.std()
+
+    # compute mean and std of classification report
+    array_report = np.array(list_report)
+    mean_report = array_report.mean(axis=0)
+    std_report = array_report.std(axis=0)
+    a_report = list_report[0]
+    mean_df_report = pd.DataFrame(mean_report, index=a_report.index,
+                            columns=a_report.columns)
+    std_df_report = pd.DataFrame(std_report, index=a_report.index,
+                            columns=a_report.columns)
+
+    # Display confusion matrix
+    plots.plot_cm(mean_cm, np.unique(Y_predict))
+    plt.savefig(out_matrix, bbox_inches='tight')
+
+    # Display class metrics
+    fig, ax = plt.subplots(figsize=(10, 7))
+    ax = mean_df_report.T.plot.bar(ax=ax, yerr=std_df_report.T, zorder=2)
+    ax.set_ylim(0.5, 1)
+    _ = ax.text(1.5, 0.95, 'OA : {:.2f} +- {:.2f}'.format(mean_accuracy,
+                                                        std_accuracy),
+                fontsize=14)
+    ax.set_title('Class quality estimation')
+
+    # custom : cuteness
+    # background color
+    ax.set_facecolor('ivory')
+    # labels
+    x_label = ax.get_xlabel()
+    ax.set_xlabel(x_label, fontdict={'fontname': 'Sawasdee'}, fontsize=14)
+    y_label = ax.get_ylabel()
+    ax.set_ylabel(y_label, fontdict={'fontname': 'Sawasdee'}, fontsize=14)
+    # borders
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.tick_params(axis='x', colors='darkslategrey', labelsize=14)
+    ax.tick_params(axis='y', colors='darkslategrey', labelsize=14)
+    # grid
+    ax.minorticks_on()
+    ax.yaxis.grid(which='major', color='darkgoldenrod', linestyle='--',
+                linewidth=0.5, zorder=1)
+    ax.yaxis.grid(which='minor', color='darkgoldenrod', linestyle='-.',
+                linewidth=0.3, zorder=1)
+    plt.savefig(out_qualite, bbox_inches='tight')
+
+    X_img, _, t_img = cla.get_samples_from_roi(image_filename, image_filename)
+    Y_predict = clf.predict(X_img)
+    ds = rw.open_image(image_filename)
+    nb_row, nb_col, _ = rw.get_image_dimension(ds)
+
+    #initialization of the array
+    img = np.zeros((nb_row, nb_col, 1), dtype='uint8')
+    #np.Y_predict
+
+    img[t_img[0], t_img[1], 0] = Y_predict
+    rw.write_image(out_classif, img, data_set=ds, gdal_dtype=None,
+                transform=None, projection=None, driver_name=None,
+                nb_col=None, nb_ligne=None, nb_band=1)
+
 def load_raster(file_path):
     """
     Load a raster file and return its data as a NumPy array.

@@ -4,7 +4,8 @@ from my_function import (
     rasterize,
     make_id,
     filter_polygons_by_code,
-    classif_pixel
+    classif_pixel_19,
+    classif_pixel_20
 )
 classif_shp = '/home/onyxia/work/projet_teledec_2024/results/data/sample/Sample_BD_foret_T31TCJ_classif.shp'
 classif_tif = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/Sample_BD_foret_T31TCJ_classif.tif'
@@ -31,4 +32,7 @@ make_id(filtered_gdf, emprise, output_id_shp, output_id_tif)
 
 image_filename = '/home/onyxia/work/data/images/Serie_temp_S2_allbands.tif'
 
-classif_pixel(image_filename, classif_tif, output_id_tif, 2, 5)
+#classif_pixel3(image_filename, classif_tif, output_id_tif, 30, 5)
+classif_pixel_19(image_filename, classif_tif, output_id_tif, 5)
+
+classif_pixel_20(image_filename, classif_tif, output_id_tif, 5, 30)
