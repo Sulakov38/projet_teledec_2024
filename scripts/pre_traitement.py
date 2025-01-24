@@ -15,7 +15,6 @@ sys.path.append('/home/onyxia/work/libsigma/')
 import read_and_write as rw
 
 # Paramètres pour preparation
-emprise = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/emprise.tif'
 bands = [2, 3, 4, 5, 6, 7, 8, '8A', 11, 12]
 releves = [
     'B_20220326-105856-076_L2A_T31TCJ_C_V3-0_FRE_B',
@@ -28,13 +27,12 @@ releves = [
 
 forest = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/masque_foret.tif'
 
-
 # Concaténation des bandes
 dirname = '/home/onyxia/work/data/images/'
 out_dirname = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/'  # Dossier de sortie
 
 image_filename = '/home/onyxia/work/data/images/SENTINEL2B_20220326-105856-076_L2A_T31TCJ_C_V3-0_FRE_B2_10_2154.tif'
-preparation(releves, bands, emprise, out_dirname, forest)
+preparation(releves, bands, out_dirname, forest)
 #img = np.concatenate(img_all_band, axis=-1)
 #data_set = rw.open_image(image_filename)
 #rw.write_image(output_img, img, data_set=data_set)
