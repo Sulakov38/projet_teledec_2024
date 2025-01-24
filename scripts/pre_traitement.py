@@ -7,7 +7,8 @@ from my_function import (
     compute_ndvi,
     data_type_match,
     preparation,
-    nodata
+    nodata,
+    merge
 )
 import sys
 sys.path.append('/home/onyxia/work/libsigma/')
@@ -26,26 +27,25 @@ releves = [
 ]
 
 forest = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/masque_foret.tif'
-img_all_band = preparation(releves, bands, emprise, forest)
+
 
 # Concaténation des bandes
-output_img = '/home/onyxia/work/data/images/Serie_temp_S2_allbands_concat.tif'
+dirname = '/home/onyxia/work/data/images/'
+out_dirname = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/'  # Dossier de sortie
+
 image_filename = '/home/onyxia/work/data/images/SENTINEL2B_20220326-105856-076_L2A_T31TCJ_C_V3-0_FRE_B2_10_2154.tif'
-img = np.concatenate(img_all_band, axis=-1)
-data_set = rw.open_image(image_filename)
-rw.write_image(output_img, img, data_set=data_set)
+preparation(releves, bands, emprise, out_dirname, forest)
+#img = np.concatenate(img_all_band, axis=-1)
+#data_set = rw.open_image(image_filename)
+#rw.write_image(output_img, img, data_set=data_set)
 
 # Paramètres pour nodata
-input_raster = '/home/onyxia/work/data/images/Serie_temp_S2_allbands_concat.tif'
-output_raster = '/home/onyxia/work/data/images/Serie_temp_S2_allbands.tif'
-nodata(input_raster, output_raster, 0)
-os.remove(input_raster)
+#input_raster = '/home/onyxia/work/data/images/Serie_temp_S2_allbands_concat.tif'
+#output_raster = '/home/onyxia/work/data/images/Serie_temp_S2_allbands.tif'
+#nodata(input_raster, output_raster, 0)
+#os.remove(input_raster)
+print(f"L'image Concaténé a été enregistrée dans {dirname}")
 
-print(f"L'image Concaténé a été enregistrée dans {output_raster}")
-
-# Définition des paramètres
-dirname = '/home/onyxia/work/data/images'  # Dossier contenant l'image d'entrée
-out_dirname = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/'  # Dossier de sortie
 filename = os.path.join(dirname, 'Serie_temp_S2_allbands.tif')  # Nom du fichier d'entrée
 out_ndvi_concat = os.path.join(out_dirname, 'Serie_temp_S2_ndvi_concat.tif')  # Nom du fichier de sortie
 

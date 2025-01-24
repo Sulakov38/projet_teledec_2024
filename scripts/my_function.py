@@ -59,7 +59,27 @@ def reproject_raster(minx, miny, maxx, maxy, input_raster, output_raster, src_ep
     print(cmd)
     os.system(cmd)
 
-def preparation(releves, bands, emprise, forest):
+
+def merge(img_all_band, output_raster):
+    cmd_pattern = ("gdal_merge -o {output_raster} "
+               "-of GTiff "
+               "-n 0 "
+               "-separate "
+               "{input_rasters}")
+
+    # Joindre tous les fichiers raster de img_all_band en une seule chaîne
+    input_rasters = ' '.join(img_all_band)
+
+    # Remplir la commande avec les paramètres
+    cmd = cmd_pattern.format(output_raster=output_raster, input_rasters=input_rasters)
+
+    # Afficher la commande générée
+    print(cmd)
+
+    # Exécuter la commande
+    os.system(cmd)
+
+def preparation(releves, bands, emprise, dirname, out_dirname, forest_mask):
     """
     Prepares Sentinel-2 images by reprojecting, masking, and storing them in a list.
     Args:
@@ -77,20 +97,29 @@ def preparation(releves, bands, emprise, forest):
             # Construct file paths
             band_name = f'/home/onyxia/work/data/images/SENTINEL2{r}{B}'
             band_file = f'{band_name}{suffixe}'
+            output_filename_inter = f"{band_name}_10_2154_inter{suffixe}"
             output_filename = f"{band_name}_10_2154{suffixe}"
-            
-            # Reproject the raster
-            reproject_raster(minx, miny, maxx, maxy, band_file, output_filename, src_epsg, dst_epsg)
-            
-            # Load reprojected image and apply the forest mask
-            band_reproj = rw.load_img_as_array(output_filename)
-            masque_foret = rw.load_img_as_array(forest).astype('bool')
-            band_masked = band_reproj.copy()
-            band_masked[~masque_foret] = 0
-            
-            # Append the masked band to the list
-            img_all_band.append(band_masked)
-    return img_all_band
+            # Vérifier si le fichier de sortie existe
+            if os.path.exists(output_filename):
+                # Ajouter le chemin du fichier existant à la liste
+                img_all_band.append(output_filename)
+            else:
+                # Reprojeter le raster si le fichier n'existe pas
+                reproject_raster(minx, miny, maxx, maxy, band_file, output_filename_inter, src_epsg, dst_epsg)          
+                img_all_band.append(output_filename)
+                img = rw.load_img_as_array(output_filename_inter)
+                masque_foret = rw.load_img_as_array(forest_mask).astype('bool')
+                band_masked = img.copy()
+                band_masked[~masque_foret] = 0
+                dataset = rw.open_image(output_filename_inter)
+                rw.write_image(output_filename, band_masked, data_set=dataset)
+                os.remove(output_filename_inter)
+    img_merge = os.path.join(out_dirname, 'Serie_temp_S2_allbands_merge.tif')  
+    output_img = os.path.join(out_dirname, 'Serie_temp_S2_allbands.tif')
+    merge(img_all_band, img_merge)
+    nodata(img_merge, output_img, 0)
+    os.remove(img_merge)
+
 
 def nodata(input_raster, output_raster, value):
     """
@@ -786,44 +815,68 @@ def classif_pixel_19(image_filename,sample_filename,id_filename,nb_folds):
                 transform=None, projection=None, driver_name=None,
                 nb_col=None, nb_ligne=None, nb_band=1)
 
+
 def classif_pixel_20(image_filename, sample_filename, id_filename, nb_folds, nb_iter):
-    suffix = '_CV{}folds_stratified_group'.format(nb_folds)
+    suffix = '_CV{}folds_stratified_group_x{}times'.format(nb_folds, nb_iter)
     out_folder = '/home/onyxia/work/data/'
-    out_classif = os.path.join(out_folder, 'ma_classif2_{}.tif'.format(suffix))
-    out_matrix = os.path.join(out_folder, 'ma_matrice2_{}.png'.format(suffix))
-    out_qualite = os.path.join(out_folder, 'mes_qualites2_{}.png'.format(suffix))
+    out_classif = os.path.join(out_folder, 'ma_classif{}.tif'.format(suffix))
+    out_matrix = os.path.join(out_folder, 'ma_matrice{}.png'.format(suffix))
+    out_qualite = os.path.join(out_folder, 'mes_qualites{}.png'.format(suffix))
 
     X, Y, t = cla.get_samples_from_roi(image_filename, sample_filename)
     _, groups, _ = cla.get_samples_from_roi(image_filename, id_filename)
 
 
+    groups = np.squeeze(groups)
+    # Supposons que Y contient toutes les classes
+
     list_cm = []
     list_accuracy = []
     list_report = []
-    groups = np.squeeze(groups)
+    Y = Y.squeeze()
+    unique_classes = np.unique(Y)
 
-# Iter on stratified K fold
-    for _ in range(nb_iter):
+    # Cross-validation stratifiée avec groupes
+    for iter_num in range(nb_iter):
         kf = StratifiedGroupKFold(n_splits=nb_folds, shuffle=True)
-        for train, test in kf.split(X, Y, groups=groups):
+        
+        for fold_num, (train, test) in enumerate(kf.split(X, Y, groups=groups)):
             X_train, X_test = X[train], X[test]
             Y_train, Y_test = Y[train], Y[test]
 
-            # 3 --- Train
-            #clf = SVC(cache_size=6000)
+            # Entraînement
             clf = RF(max_depth=50, oob_score=True, max_samples=0.75, class_weight='balanced', n_jobs=50)
             clf.fit(X_train, Y_train)
 
-            # 4 --- Test
+            # Test
             Y_predict = clf.predict(X_test)
+            # Imprimer la composition des Y_test et Y_predict
+            print(f"Iteration {iter_num}, Fold {fold_num}")
+            print("Composition de Y_test :")
+            print(dict(zip(*np.unique(Y_test, return_counts=True))))
+            print("Composition de Y_predict :")
+            print(dict(zip(*np.unique(Y_predict, return_counts=True))))
+            # Compute confusion matrix
+            cm = confusion_matrix(Y_test, Y_predict)
+            
+            # Ajouter des classes absentes avec des zéros dans la matrice de confusion
+            cm_full = np.zeros((len(unique_classes), len(unique_classes)))
+            for i in range(len(unique_classes)):
+                if i < cm.shape[0]:
+                    cm_full[i, :cm.shape[1]] = cm[i]
+            
+            list_cm.append(cm_full)
 
-            list_cm.append(confusion_matrix(Y_test, Y_predict))
+            # Compute accuracy
             list_accuracy.append(accuracy_score(Y_test, Y_predict))
-            report = classification_report(Y_test, Y_predict,
-                                            labels=np.unique(Y_predict),
-                                            output_dict=True)
 
-            # store them
+            # Classification report
+            report = classification_report(Y_test, Y_predict,
+                                        labels=unique_classes,
+                                        output_dict=True)
+
+
+            # Passer le rapport rempli à la fonction
             list_report.append(report_from_dict_to_df(report))
 
     # compute mean of cm
