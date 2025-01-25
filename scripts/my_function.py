@@ -79,7 +79,7 @@ def merge(img_all_band, output_raster):
     # Exécuter la commande
     os.system(cmd)
 
-def preparation(releves, bands, dirname, out_dirname, forest_mask):
+def preparation(releves, bands, dirname, forest_mask):
     """
     Prepares Sentinel-2 images by reprojecting, masking, and storing them in a list.
     Args:
@@ -123,12 +123,51 @@ def preparation(releves, bands, dirname, out_dirname, forest_mask):
                 dataset = rw.open_image(output_filename_inter)
                 rw.write_image(output_filename, band_masked, data_set=dataset)
                 os.remove(output_filename_inter)
-    img_merge = os.path.join(out_dirname, 'Serie_temp_S2_allbands_merge.tif')  
-    output_img = os.path.join(out_dirname, 'Serie_temp_S2_allbands.tif')
+    img_merge = os.path.join(dirname, 'Serie_temp_S2_allbands_merge.tif')  
+    output_img = os.path.join(dirname, 'Serie_temp_S2_allbands.tif')
     merge(img_all_band, img_merge)
     nodata(img_merge, output_img, 0)
     os.remove(img_merge)
 
+def create_ndvi(dirname, num_dates,bands_per_date, total_bands):
+    out_ndvi_concat = os.path.join(dirname, 'Serie_temp_S2_ndvi_concat.tif')  # Nom du fichier de sortie
+    filename = os.path.join(dirname, 'Serie_temp_S2_allbands.tif')  # Nom du fichier d'entrée
+    # Chargement des données
+    data = rw.load_img_as_array(filename)
+    # Définir les paramètres de traitement
+
+    # Calcul des indices des bandes B4 (rouge) et B8 (NIR) pour chaque date
+    red_band_indices = [
+        calculate_band_index(i, 2, bands_per_date, total_bands) for i in range(num_dates)
+    ]
+    nir_band_indices = [
+        calculate_band_index(i, 6, bands_per_date, total_bands) for i in range(num_dates)
+    ]
+
+    # Calcul du NDVI pour chaque date
+    ndvi_stack = []
+    for i in range(num_dates):
+        # Extraction des bandes rouge et infrarouge
+        r = data[:, :, red_band_indices[i]].astype('float32')
+        ir = data[:, :, nir_band_indices[i]].astype('float32')
+        
+        # Calcul du NDVI en utilisant la fonction dédiée
+        ndvi = compute_ndvi(r, ir)
+        
+        # Ajout du NDVI calculé à la pile
+        ndvi_stack.append(ndvi)
+
+    # Conversion de la pile NDVI en tableau numpy
+    ndvi_stack = np.dstack(ndvi_stack)
+    print(ndvi_stack.shape)
+
+    data_set = rw.open_image(filename)
+    # Écriture de l'image NDVI dans un fichier de sortie
+    rw.write_image(out_ndvi_concat, ndvi_stack, data_set=data_set, gdal_dtype=data_type_match['float32'])
+    out_ndvi_filename = os.path.join(dirname, 'Serie_temp_S2_ndvi.tif')  # Nom du fichier de sortie
+    nodata(out_ndvi_concat, out_ndvi_filename, -9999)
+    os.remove(out_ndvi_concat)
+    print(f"L'image NDVI a été enregistrée dans {out_ndvi_filename}")
 
 def nodata(input_raster, output_raster, value):
     """
@@ -475,9 +514,13 @@ def compute_class_statistics(ndvi, classes, selected_classes, band_dates):
     Returns:
         pd.DataFrame: DataFrame containing the computed statistics.
     """
+    print(ndvi.shape)
+    print(classes.shape)
+    classes = np.squeeze(classes)
     results = []
-    for band_idx in range(ndvi.shape[0]):
-        band_data = ndvi[band_idx]
+    for band_idx in range(ndvi.shape[2]):
+        band_data = ndvi[:, :, band_idx]
+        band_data = np.squeeze(band_data)
         for cls in selected_classes:
             class_mask = (classes == cls)
             masked_ndvi = band_data[class_mask]
@@ -975,9 +1018,11 @@ def calculate_band_means(ndvi_data, mask):
     Returns:
         np.ndarray: Array of mean values for each band.
     """
+    mask = np.squeeze(mask)
     means = []
-    for band in range(ndvi_data.shape[0]):
-        band_data = ndvi_data[band, :, :]
+    for band in range(ndvi_data.shape[2]):
+        band_data = ndvi_data[:, :, band]
+        band_data = np.squeeze(band_data)
         means.append(np.mean(band_data[mask]))
     return np.array(means)
 
@@ -994,8 +1039,10 @@ def calculate_distances(ndvi_data, band_means, mask):
         np.ndarray: Array of distances for the masked pixels.
     """
     distances = np.zeros(mask.shape, dtype=np.float32)
-    for band in range(ndvi_data.shape[0]):
-        distances += (ndvi_data[band, :, :] - band_means[band]) ** 2
+    distances = np.squeeze(distances)
+    mask = np.squeeze(mask)
+    for band in range(ndvi_data.shape[2]):
+        distances += np.squeeze((ndvi_data[:, :, band]) - band_means[band]) ** 2
     distances = np.sqrt(distances)
     return distances[mask]
 

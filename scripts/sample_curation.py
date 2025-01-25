@@ -12,7 +12,6 @@ output_path_shp = '/home/onyxia/work/projet_teledec_2024/results/data/sample/Sam
 output_path_tif = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/Sample_BD_foret_T31TCJ.tif'
 create_vegetation_code(shapefile_path_vege, shapefile_path_emprise, output_path_shp)
 
-
 field_name = 'code'
 type_data = 'Byte'
 spatial_resolution = 10
