@@ -159,7 +159,6 @@ def create_ndvi(dirname, num_dates,bands_per_date, total_bands):
 
     # Conversion de la pile NDVI en tableau numpy
     ndvi_stack = np.dstack(ndvi_stack)
-    print(ndvi_stack.shape)
 
     data_set = rw.open_image(filename)
     # Écriture de l'image NDVI dans un fichier de sortie
@@ -514,8 +513,7 @@ def compute_class_statistics(ndvi, classes, selected_classes, band_dates):
     Returns:
         pd.DataFrame: DataFrame containing the computed statistics.
     """
-    print(ndvi.shape)
-    print(classes.shape)
+
     classes = np.squeeze(classes)
     results = []
     for band_idx in range(ndvi.shape[2]):
