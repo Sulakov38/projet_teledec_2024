@@ -759,7 +759,7 @@ def classif_pixel(image_filename, sample_filename, id_filename, nb_folds, nb_ite
     # Display class metrics
     fig, ax = plt.subplots(figsize=(10, 7))
     ax = mean_df_report.T.plot.bar(ax=ax, yerr=std_df_report.T, zorder=2)
-    ax.set_ylim(0.5, 1)
+    ax.set_ylim(0, 1)
     _ = ax.text(1.5, 0.95, 'OA : {:.2f} +- {:.2f}'.format(mean_accuracy,
                                                         std_accuracy),
                 fontsize=14)
