@@ -505,23 +505,6 @@ def pixels_per_polygons_per_class(dataframe, output_violin_path):
     plt.tight_layout()
     plt.savefig(output_violin_path)
 
-def load_raster_as_array(raster_path):
-    """
-    Load a raster as a NumPy array using GDAL.
-
-    Args:
-        raster_path (str): Path to the raster file.
-
-    Returns:
-        np.ndarray: Array containing raster data. If multiple bands exist, a 3D array is returned.
-    """
-    dataset = gdal.Open(raster_path)
-    array = []
-    for i in range(1, dataset.RasterCount + 1):  # Read all bands
-        band = dataset.GetRasterBand(i)
-        array.append(band.ReadAsArray())
-    return np.array(array) if dataset.RasterCount > 1 else np.array(array[0])
-
 def compute_class_statistics(ndvi, classes, selected_classes, band_dates):
     """
     Compute mean and standard deviation of NDVI for each class and temporal band.
@@ -650,38 +633,6 @@ def plot_ndvi_results(results_df, selected_classes, class_to_color, code_to_name
     plt.tight_layout()
     plt.savefig(output_path)
     plt.close()
-
-# Fonction pour charger une image en tant que tableau numpy
-def load_img_as_array(filename):
-    """
-    Charge une image et retourne un tableau numpy et son dataset GDAL.
-    """
-    dataset = gdal.Open(filename)
-    if not dataset:
-        raise FileNotFoundError(f"Impossible d'ouvrir le fichier {filename}")
-    return dataset.ReadAsArray(), dataset
-
-# Fonction pour écrire une image à partir d'un tableau numpy
-def write_image(output_filename, array, reference_ds, gdal_dtype):
-    """
-    Enregistre un tableau numpy dans un fichier TIFF en utilisant un dataset de référence.
-    """
-    driver = gdal.GetDriverByName('GTiff')
-    out_ds = driver.Create(
-        output_filename,
-        reference_ds.RasterXSize,
-        reference_ds.RasterYSize,
-        array.shape[0],  # Nombre de bandes
-        gdal_dtype
-    )
-    out_ds.SetGeoTransform(reference_ds.GetGeoTransform())
-    out_ds.SetProjection(reference_ds.GetProjection())
-
-    for i in range(array.shape[0]):
-        out_ds.GetRasterBand(i + 1).WriteArray(array[i])
-
-    out_ds.FlushCache()
-    out_ds = None
 
 # Fonction pour calculer l'indice d'une bande
 def calculate_band_index(date_index, band_position, bands_per_date, total_bands):
