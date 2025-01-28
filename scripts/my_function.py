@@ -672,7 +672,7 @@ def report_from_dict_to_df(dict_report):
 
 def classif_pixel(image_filename, sample_filename, id_filename, out_folder, nb_folds, nb_iter):
     suffix = '_CV{}folds_stratified_group_x{}times'.format(nb_folds, nb_iter)
-    out_classif = os.path.join(out_folder, 'carte_essences_echelle_pixel.tif'.format)
+    out_classif = os.path.join(out_folder, 'carte_essences_echelle_pixel.tif')
     out_matrix = os.path.join(out_folder, 'matrice{}.png'.format(suffix))
     out_qualite = os.path.join(out_folder, 'qualites{}.png'.format(suffix))
 
