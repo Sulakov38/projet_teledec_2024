@@ -19,7 +19,7 @@ else:
 image_filename = '/home/onyxia/work/data/images/Serie_temp_S2_allbands.tif'
 
 img_ds = '/home/onyxia/work/data/images/SENTINEL2B_20220326-105856-076_L2A_T31TCJ_C_V3-0_FRE_B2_10_2154.tif'
-
-classif_pixel(image_filename, classif_tif, output_id_tif, 5, 3)
+out_folder = '/home/onyxia/work/results/data/classif'
+classif_pixel(image_filename, classif_tif, output_id_tif, out_folder, 5, 30)
 
 

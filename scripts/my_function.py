@@ -670,12 +670,11 @@ def report_from_dict_to_df(dict_report):
 
     return report_df
 
-def classif_pixel(image_filename, sample_filename, id_filename, nb_folds, nb_iter):
+def classif_pixel(image_filename, sample_filename, id_filename, out_folder, nb_folds, nb_iter):
     suffix = '_CV{}folds_stratified_group_x{}times'.format(nb_folds, nb_iter)
-    out_folder = '/home/onyxia/work/data/'
-    out_classif = os.path.join(out_folder, 'ma_classif{}.tif'.format(suffix))
-    out_matrix = os.path.join(out_folder, 'ma_matrice{}.png'.format(suffix))
-    out_qualite = os.path.join(out_folder, 'mes_qualites{}.png'.format(suffix))
+    out_classif = os.path.join(out_folder, 'carte_essences_echelle_pixel.tif'.format)
+    out_matrix = os.path.join(out_folder, 'matrice{}.png'.format(suffix))
+    out_qualite = os.path.join(out_folder, 'qualites{}.png'.format(suffix))
 
     X, Y, t = cla.get_samples_from_roi(image_filename, sample_filename)
     _, groups, _ = cla.get_samples_from_roi(image_filename, id_filename)
@@ -699,7 +698,7 @@ def classif_pixel(image_filename, sample_filename, id_filename, nb_folds, nb_ite
             Y_train, Y_test = Y[train], Y[test]
 
             # Entraînement
-            clf = RF(max_depth=50, oob_score=True, max_samples=0.75, class_weight='balanced', n_jobs=50)
+            clf = RF(max_depth=50, oob_score=True, max_samples=0.75, class_weight='balanced', n_jobs=-1)
             clf.fit(X_train, Y_train)
 
             # Test
