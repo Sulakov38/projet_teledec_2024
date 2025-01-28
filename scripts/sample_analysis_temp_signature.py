@@ -11,10 +11,10 @@ sys.path.append('/home/onyxia/work/libsigma/')
 import read_and_write as rw
 
 # Paths to input and output files
-ndvi_path = "/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/Serie_temp_S2_ndvi.tif"
-classes_path = "/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/Sample_BD_foret_T31TCJ.tif"
-shapefile_path = "/home/onyxia/work/projet_teledec_2024/results/data/sample/Sample_BD_foret_T31TCJ.shp"
-output_path = "/home/onyxia/work/projet_teledec_2024/results/figure/temp_mean_ndvi.png"
+ndvi_path = "/home/onyxia/work/results/data/img_pretraitees/Serie_temp_S2_ndvi.tif"
+classes_path = "/home/onyxia/work/results/data/img_pretraitees/Sample_BD_foret_T31TCJ.tif"
+shapefile_path = "/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ.shp"
+output_path = "/home/onyxia/work/results/figure/temp_mean_ndvi.png"
 
 # Parameters
 selected_classes = [12, 13, 14, 23, 24, 25]

@@ -8,10 +8,10 @@ sys.path.append('/home/onyxia/work/libsigma/')
 import read_and_write as rw
 
 # Paths to input and output files
-ndvi_file = "/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/Serie_temp_S2_ndvi.tif"
-classes_file = "/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/Sample_BD_foret_T31TCJ.tif"
-shapefile_path = "/home/onyxia/work/projet_teledec_2024/results/data/sample/Sample_BD_foret_T31TCJ.shp"
-output_path = "/home/onyxia/work/projet_teledec_2024/results/figure/diag_baton_dist_centroide_classe.png"
+ndvi_file = "/home/onyxia/work/results/data/img_pretraitees/Serie_temp_S2_ndvi.tif"
+classes_file = "/home/onyxia/work/results/data/img_pretraitees/Sample_BD_foret_T31TCJ.tif"
+shapefile_path = "/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ.shp"
+output_path = "/home/onyxia/work/results/figure/diag_baton_dist_centroide_classe.png"
 
 # Load raster data
 ndvi_data = rw.load_img_as_array(ndvi_file)  # NDVI data (shape: [bands, height, width])

@@ -88,7 +88,7 @@ def preparation(releves, bands, dirname, forest_mask):
         emprise (str): Path to the raster defining the study extent.
     """
     suffixe = '.tif'
-    emprise_tif = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/emprise.tif'
+    emprise_tif = '/home/onyxia/work/results/data/img_pretraitees/emprise.tif'
 
     if os.path.exists(emprise_tif):
         pass
@@ -291,7 +291,7 @@ def rasterize(in_vector, out_image, field_name, sptial_resolution, type_data):
         sptial_resolution (float): Spatial resolution for the output raster.
         emprise (str): Path to the vector file defining the extent.
     """
-    emprise_tif = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/emprise.tif'
+    emprise_tif = '/home/onyxia/work/results/data/img_pretraitees/emprise.tif'
 
     if os.path.exists(emprise_tif):
         pass
@@ -318,7 +318,7 @@ def rasterize(in_vector, out_image, field_name, sptial_resolution, type_data):
     print(cmd)
     os.system(cmd)
 
-def masque(input_image, output_masque):
+def masque(input_dir, output_dir):
     """
     Generates a mask from an input image where non-zero values are retained.
     Args:
@@ -326,8 +326,27 @@ def masque(input_image, output_masque):
         output_masque (str): Path to save the mask raster file.
     """
     # Open the input image and load it as a numpy array
-    data_set = rw.open_image(input_image)
-    img = rw.load_img_as_array(input_image)
+    shapefile_path_vege = os.path.join(input_dir,'FORMATION_VEGETALE.shp')
+    output_vegetation = os.path.join(input_dir,'FORMATION_VEGETALE_binaire.shp')
+
+    vegetation = gpd.read_file(shapefile_path_vege)
+
+    vegetation['binaire'] = 1
+
+    codes = ["LA4", "LA6", "F01", "F02", "F03", "FF0", "FO0"]
+    vegetation.loc[vegetation['CODE_TFV'].isin(codes), 'binaire'] = 0
+
+    vegetation.to_file(output_vegetation)
+
+    out_image = os.path.join(output_dir,'img_pretraitees/binaire.tif')
+    field_name = 'binaire'
+    sptial_resolution = 10.0
+    typedata = 'Byte'
+    rasterize(output_vegetation, out_image, field_name, sptial_resolution, typedata)
+
+    output_masque = os.path.join(output_dir,'img_pretraitees/masque_foret.tif')
+    data_set = rw.open_image(out_image)
+    img = rw.load_img_as_array(out_image)
     
     # Create a binary mask where values are non-zero
     masque_foret = (img != 0).astype(int)
@@ -335,6 +354,9 @@ def masque(input_image, output_masque):
     # Write the mask to an output file
     rw.write_image(output_masque, masque_foret, data_set=data_set,
                    gdal_dtype=data_type_match['uint8'])
+    os.remove(out_image)
+    print(f"Le masque a été enregistrée dans {output_masque}")
+
 
 def load_shapefile(file_path):
     """
@@ -424,11 +446,11 @@ def pixels_per_class(input_image, dataframe, output_pix_path):
 def make_id(dataframe, output_id_shp, output_id_tif):
     dataframe["code"] = dataframe["code"].astype(int)
     dataframe["unique_id"] = range(1, len(dataframe) + 1)
-    output_id_shp = '/home/onyxia/work/projet_teledec_2024/results/data/sample/forest_id.shp'
+    output_id_shp = '/home/onyxia/work/results/data/sample/forest_id.shp'
     dataframe.to_file(output_id_shp)
 
     field = "unique_id"
-    output_id_tif = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/forest_id.tif'
+    output_id_tif = '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif'
     resolution = 10
     type_data = 'Uint16'
     rasterize(output_id_shp, output_id_tif, field, resolution, type_data)
@@ -440,8 +462,8 @@ def pixels_per_polygons_per_class(dataframe, output_violin_path):
         dataframe (str): Path to the GeoDataFrame containing class information.
         output_violin_path (str): Path to save the output violin plot.
     """
-    output_id_shp = '/home/onyxia/work/projet_teledec_2024/results/data/sample/forest_id.shp'
-    output_id_tif = '/home/onyxia/work/projet_teledec_2024/results/data/img_pretraitees/forest_id.tif'
+    output_id_shp = '/home/onyxia/work/results/data/sample/forest_id.shp'
+    output_id_tif = '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif'
 
 
     make_id(dataframe, output_id_shp, output_id_tif)
@@ -697,167 +719,7 @@ def report_from_dict_to_df(dict_report):
 
     return report_df
 
-def classif_pixel(image_filename, sample_filename, id_filename, nb_iter, nb_folds):
-
-    # outputs
-    suffix = '_CV{}folds_stratified_group_x{}times'.format(nb_folds, nb_iter)
-    out_folder = '/home/onyxia/work/data/'
-    out_classif = os.path.join(out_folder, 'ma_classif{}.tif'.format(suffix))
-    out_matrix = os.path.join(out_folder, 'ma_matrice{}.png'.format(suffix))
-    out_qualite = os.path.join(out_folder, 'mes_qualites{}.png'.format(suffix))
-
-    X, Y, t = cla.get_samples_from_roi(image_filename, sample_filename)
-    _, groups, _ = cla.get_samples_from_roi(image_filename, id_filename)
-
-    list_cm = []
-    list_accuracy = []
-    list_report = []
-    groups = np.squeeze(groups)
-
-    # Iter on stratified K fold
-    for _ in range(nb_iter):
-        kf = StratifiedGroupKFold(n_splits=nb_folds, shuffle=True)
-        for train, test in kf.split(X, Y, groups=groups):
-            X_train, X_test = X[train], X[test]
-            Y_train, Y_test = Y[train], Y[test]
-
-            # 3 --- Train
-            #clf = SVC(cache_size=6000)
-            clf = RF(max_depth=50,oob_score=True,max_samples=0.75,class_weight='balanced')
-            clf.fit(X_train, Y_train)
-
-            # 4 --- Test
-            Y_predict = clf.predict(X_test)
-
-            # compute quality
-            list_cm.append(confusion_matrix(Y_test, Y_predict))
-            list_accuracy.append(accuracy_score(Y_test, Y_predict))
-            report = classification_report(Y_test, Y_predict,
-                                            labels=np.unique(Y_predict),
-                                            output_dict=True)
-
-            # store them
-            list_report.append(report_from_dict_to_df(report))
-
-    # compute mean of cm
-    array_cm = np.array(list_cm)
-    mean_cm = array_cm.mean(axis=0)
-
-    # compute mean and std of overall accuracy
-    array_accuracy = np.array(list_accuracy)
-    mean_accuracy = array_accuracy.mean()
-    std_accuracy = array_accuracy.std()
-
-    # compute mean and std of classification report
-    array_report = np.array(list_report)
-    mean_report = array_report.mean(axis=0)
-    std_report = array_report.std(axis=0)
-    a_report = list_report[0]
-    mean_df_report = pd.DataFrame(mean_report, index=a_report.index,
-                                columns=a_report.columns)
-    std_df_report = pd.DataFrame(std_report, index=a_report.index,
-                                columns=a_report.columns)
-
-    # Display confusion matrix
-    plots.plot_cm(mean_cm, np.unique(Y_predict))
-    plt.savefig(out_matrix, bbox_inches='tight')
-
-    # Display class metrics
-    fig, ax = plt.subplots(figsize=(10, 7))
-    ax = mean_df_report.T.plot.bar(ax=ax, yerr=std_df_report.T, zorder=2)
-    ax.set_ylim(0.5, 1)
-    _ = ax.text(1.5, 0.95, 'OA : {:.2f} +- {:.2f}'.format(mean_accuracy,
-                                                        std_accuracy),
-                fontsize=14)
-    ax.set_title('Class quality estimation')
-
-    # custom : cuteness
-    # background color
-    ax.set_facecolor('ivory')
-    # labels
-    x_label = ax.get_xlabel()
-    ax.set_xlabel(x_label, fontdict={'fontname': 'Sawasdee'}, fontsize=14)
-    y_label = ax.get_ylabel()
-    ax.set_ylabel(y_label, fontdict={'fontname': 'Sawasdee'}, fontsize=14)
-    # borders
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["bottom"].set_visible(False)
-    ax.spines["left"].set_visible(False)
-    ax.tick_params(axis='x', colors='darkslategrey', labelsize=14)
-    ax.tick_params(axis='y', colors='darkslategrey', labelsize=14)
-    # grid
-    ax.minorticks_on()
-    ax.yaxis.grid(which='major', color='darkgoldenrod', linestyle='--',
-                linewidth=0.5, zorder=1)
-    ax.yaxis.grid(which='minor', color='darkgoldenrod', linestyle='-.',
-                linewidth=0.3, zorder=1)
-    plt.savefig(out_qualite, bbox_inches='tight')
-
-    X_img, _, t_img = cla.get_samples_from_roi(image_filename, image_filename)
-    Y_predict = clf.predict(X_img)
-    ds = rw.open_image(image_filename)
-    nb_row, nb_col, _ = rw.get_image_dimension(ds)
-
-    #initialization of the array
-    img = np.zeros((nb_row, nb_col, 1), dtype='uint8')
-    #np.Y_predict
-
-    img[t_img[0], t_img[1], 0] = Y_predict
-    rw.write_image(out_classif, img, data_set=ds, gdal_dtype=None,
-                transform=None, projection=None, driver_name=None,
-                nb_col=None, nb_ligne=None, nb_band=1)
-
-def classif_pixel_19(image_filename,sample_filename,id_filename,nb_folds):
-    suffix = '_CV{}folds_stratified_group'.format(nb_folds)
-    out_folder = '/home/onyxia/work/data/'
-    out_classif = os.path.join(out_folder, 'ma_classif2_{}.tif'.format(suffix))
-    out_matrix = os.path.join(out_folder, 'ma_matrice2_{}.png'.format(suffix))
-    out_qualite = os.path.join(out_folder, 'mes_qualites2_{}.png'.format(suffix))
-
-    X, Y, t = cla.get_samples_from_roi(image_filename, sample_filename)
-    _, groups, _ = cla.get_samples_from_roi(image_filename, id_filename)
-
-    groups = np.squeeze(groups)
-    # Iter on stratified K fold
-    kf = StratifiedGroupKFold(n_splits=nb_folds, shuffle=True)
-    for train, test in kf.split(X, Y, groups=groups):
-        X_train, X_test = X[train], X[test]
-        Y_train, Y_test = Y[train], Y[test]
-
-        # 3 --- Train
-        #clf = SVC(cache_size=6000)
-        clf = RF(max_depth=50, oob_score=True, max_samples=0.75, class_weight='balanced', n_jobs=50)
-        clf.fit(X_train, Y_train)
-
-        # 4 --- Test
-        Y_predict = clf.predict(X_test)
-
-        # compute quality
-    cm = confusion_matrix(Y_test, Y_predict)
-    report = classification_report(Y_test, Y_predict, labels=np.unique(Y_predict), output_dict=True)
-    accuracy = accuracy_score(Y_test, Y_predict)
-
-    # display and save quality
-    plots.plot_cm(cm, np.unique(Y_predict), out_filename=out_matrix)
-    plots.plot_class_quality(report, accuracy, out_filename=out_qualite)
-
-    X_img, _, t_img = cla.get_samples_from_roi(image_filename, image_filename)
-    Y_predict = clf.predict(X_img)
-    ds = rw.open_image(image_filename)
-    nb_row, nb_col, _ = rw.get_image_dimension(ds)
-
-    #initialization of the array
-    img = np.zeros((nb_row, nb_col, 1), dtype='uint8')
-    #np.Y_predict
-
-    img[t_img[0], t_img[1], 0] = Y_predict
-    rw.write_image(out_classif, img, data_set=ds, gdal_dtype=None,
-                transform=None, projection=None, driver_name=None,
-                nb_col=None, nb_ligne=None, nb_band=1)
-
-
-def classif_pixel_20(image_filename, sample_filename, id_filename, nb_folds, nb_iter):
+def classif_pixel(image_filename, sample_filename, id_filename, nb_folds, nb_iter):
     suffix = '_CV{}folds_stratified_group_x{}times'.format(nb_folds, nb_iter)
     out_folder = '/home/onyxia/work/data/'
     out_classif = os.path.join(out_folder, 'ma_classif{}.tif'.format(suffix))
@@ -989,21 +851,6 @@ def classif_pixel_20(image_filename, sample_filename, id_filename, nb_folds, nb_
                 transform=None, projection=None, driver_name=None,
                 nb_col=None, nb_ligne=None, nb_band=1)
 
-def load_raster(file_path):
-    """
-    Load a raster file and return its data as a NumPy array.
-
-    Args:
-        file_path (str): Path to the raster file.
-
-    Returns:
-        np.ndarray: Array containing the raster data.
-    """
-    dataset = gdal.Open(file_path)
-    if not dataset:
-        raise FileNotFoundError(f"Unable to open file: {file_path}")
-    data = dataset.ReadAsArray()
-    return data
 
 def calculate_band_means(ndvi_data, mask):
     """
