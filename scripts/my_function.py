@@ -30,16 +30,20 @@ data_type_match = {
 
 def reproject_raster(minx, miny, maxx, maxy, input_raster, output_raster, src_epsg, dst_epsg):
     """
-    Reprojects and clips a raster to a new coordinate reference system and extent.
-    Args:
-        minx (float): Minimum X-coordinate of the extent.
-        miny (float): Minimum Y-coordinate of the extent.
-        maxx (float): Maximum X-coordinate of the extent.
-        maxy (float): Maximum Y-coordinate of the extent.
-        input_raster (str): Path to the input raster file.
-        output_raster (str): Path to the output raster file.
-        src_epsg (int): EPSG code of the source coordinate system.
-        dst_epsg (int): EPSG code of the target coordinate system.
+    Reprojette un raster dans un nouveau système de coordonnées, en définissant 
+    une étendue spécifique et une résolution spatiale de 10 x 10.
+
+    Paramètres
+    ----------
+    minx, miny, maxx, maxy : float
+        Coordonnées de la zone d’intérêt dans le système de coordonnées de destination.
+        Chemin vers le raster en entrée.
+    output_raster : str
+        Chemin vers le raster reprojeté en sortie (fichier GeoTIFF).
+    src_epsg : int
+        Code EPSG du système de coordonnées source.
+    dst_epsg : int
+        Code EPSG du système de coordonnées de destination.
     """
     # Define the command pattern with parameters
     cmd_pattern = ("gdalwarp -s_srs EPSG:{src_epsg} "
@@ -61,6 +65,17 @@ def reproject_raster(minx, miny, maxx, maxy, input_raster, output_raster, src_ep
 
 
 def merge(img_all_band, output_raster):
+    """
+    Fusionne plusieurs rasters en un seul fichier GeoTIFF, en créant des bandes séparées
+    pour chaque image.
+
+    Paramètres
+    ----------
+    img_all_band : list of str
+        Liste des chemins vers les différents fichiers raster à fusionner.
+    output_raster : str
+        Chemin du fichier de sortie (GeoTIFF) contenant l’ensemble des rasters fusionnés.
+    """
     cmd_pattern = ("gdal_merge -o {output_raster} "
                "-of GTiff "
                "-n 0 "
@@ -69,23 +84,29 @@ def merge(img_all_band, output_raster):
 
     # Joindre tous les fichiers raster de img_all_band en une seule chaîne
     input_rasters = ' '.join(img_all_band)
-
     # Remplir la commande avec les paramètres
     cmd = cmd_pattern.format(output_raster=output_raster, input_rasters=input_rasters)
-
     # Afficher la commande générée
     print(cmd)
-
     # Exécuter la commande
     os.system(cmd)
 
 def preparation(releves, bands, dirname, forest_mask):
     """
-    Prepares Sentinel-2 images by reprojecting, masking, and storing them in a list.
-    Args:
-        releves (list): List of Sentinel-2 acquisition identifiers.
-        bands (list): List of band indices to process.
-        emprise (str): Path to the raster defining the study extent.
+    Prépare un ensemble d’images raster Sentinel-2 en reprojetant, recadrant et appliquant 
+    un masque forestier, puis fusionne le tout en une seule image finale.
+
+    Paramètres
+    ----------
+    releves : list of str
+        Liste des chaînes identifiant les différentes dates de relevés Sentinel-2 (ex.: ['_20200101', '_20200115']).
+    bands : list of str
+        Liste des bandes Sentinel-2 à traiter (ex.: ['B2', 'B3', 'B4', 'B8']).
+    dirname : str
+        Chemin vers le répertoire dans lequel sera sauvegardée l’image finale fusionnée.
+    forest_mask : str
+        Chemin vers le raster contenant un masque forestier (même étendue et résolution 
+        que les images Sentinel-2) afin de filtrer les zones non forestières.
     """
     suffixe = '.tif'
     emprise_tif = '/home/onyxia/work/results/data/img_pretraitees/emprise.tif'
@@ -129,7 +150,22 @@ def preparation(releves, bands, dirname, forest_mask):
     nodata(img_merge, output_img, 0)
     os.remove(img_merge)
 
-def create_ndvi(dirname, num_dates,bands_per_date, total_bands):
+def create_ndvi(dirname, num_dates, bands_per_date, total_bands):
+    """
+    Génère une série temporelle d’images NDVI à partir d’un fichier de bandes Sentinel-2 et 
+    enregistre le résultat dans un fichier GeoTIFF.
+
+    Paramètres
+    ----------
+    dirname : str
+        Chemin du répertoire contenant le fichier d’entrée et où seront sauvegardés les résultats.
+    num_dates : int
+        Nombre de dates ou de scènes temporelles à traiter.
+    bands_per_date : int
+        Nombre total de bandes par date (ex. 10, 13 selon la configuration Sentinel-2).
+    total_bands : int
+        Nombre total de bandes dans le fichier d’entrée (num_dates × bands_per_date).
+    """ 
     out_ndvi_concat = os.path.join(dirname, 'Serie_temp_S2_ndvi_concat.tif')  # Nom du fichier de sortie
     filename = os.path.join(dirname, 'Serie_temp_S2_allbands.tif')  # Nom du fichier d'entrée
     # Chargement des données
@@ -170,10 +206,16 @@ def create_ndvi(dirname, num_dates,bands_per_date, total_bands):
 
 def nodata(input_raster, output_raster, value):
     """
-    Sets the no-data value of a raster.
-    Args:
-        input_raster (str): Path to the input raster file.
-        output_raster (str): Path to the output raster file.
+    Assigne une valeur NoData à un raster et génère un nouveau fichier GeoTIFF en sortie.
+
+    Paramètres
+    ----------
+    input_raster : str
+        Chemin vers le fichier raster d'entrée (fichier .tif).
+    output_raster : str
+        Chemin du fichier de sortie (fichier .tif) avec la nouvelle valeur NoData.
+    value : int ou float
+        Valeur à attribuer comme NoData dans le raster.
     """
     # Define the command pattern for setting no-data value
     cmd_pattern = ("gdal_translate -a_nodata {value} "
@@ -189,12 +231,20 @@ def nodata(input_raster, output_raster, value):
 
 def rasterize_emprise(in_vector, out_image, field_name_emprise, sptial_resolution):
     """
-    Rasterizes a vector layer based on a specified field and spatial resolution.
-    Args:
-        in_vector (str): Path to the input vector file.
-        out_image (str): Path to the output raster file.
-        field_name_emprise (str): Name of the field to rasterize.
-        sptial_resolution (float): Spatial resolution for the output raster.
+    Convertit une couche vectorielle en raster (GeoTIFF) en appliquant une 
+    résolution spatiale spécifiée.
+
+    Paramètres
+    ----------
+    in_vector : str
+        Chemin vers la couche vectorielle (fichier .shp, GeoPackage, etc.) à rasteriser.
+    out_image : str
+        Chemin du fichier de sortie au format GeoTIFF (fichier .tif).
+    field_name_emprise : str
+        Nom du champ d’attribut à utiliser pour renseigner la valeur des pixels dans le raster.
+    sptial_resolution : int
+        Résolution spatiale (en unités de la projection de la couche) à utiliser pour le raster 
+        (taille d’un pixel sur l’axe X et Y).
     """
     # Define the command pattern for rasterization
     cmd_pattern = ("gdal_rasterize -a {field_name_emprise} "
@@ -211,13 +261,15 @@ def rasterize_emprise(in_vector, out_image, field_name_emprise, sptial_resolutio
     print(cmd)
     os.system(cmd)
 
+
 def get_img_extend(image_filename):
     """
-    Retrieves the geographic extent of an image file.
-    Args:
-        image_filename (str): Path to the image file.
-    Returns:
-        tuple: (minx, miny, maxx, maxy) geographic extent of the image.
+    Récupère l’emprise spatiale d’une image raster.
+
+    Paramètres
+    ----------
+    image_filename : str
+        Chemin vers l’image raster dont on veut extraire l’emprise.
     """
     # Open the image file using GDAL
     dataset = gdal.Open(image_filename)
@@ -231,14 +283,22 @@ def get_img_extend(image_filename):
     
     return minx, miny, maxx, maxy
 
-def create_vegetation_code(shapefile_path_vege, shapefile_path_emprise, output_path):
+def create_vegetation_code(shapefile_path_vege, shapefile_path_emprise, output_path, output_path_all):
     """
-    Processes a vegetation shapefile and assigns codes and names based on a predefined mapping.
-    Clips the processed shapefile to a given extent and saves the output.
-    Args:
-        shapefile_path_vege (str): Path to the vegetation shapefile.
-        shapefile_path_emprise (str): Path to the extent shapefile.
-        output_path (str): Path to save the processed shapefile.
+    Crée et applique un système de codification sur les entités d’un shapefile de végétation
+    en fonction de leur champ 'CODE_TFV', puis génère deux shapefiles de sortie (complet 
+    et filtré) en les ‘clippant’ sur l’emprise géographique spécifiée.
+
+    Paramètres
+    ----------
+    shapefile_path_vege : str
+        Chemin vers le shapefile de végétation à traiter.
+    shapefile_path_emprise : str
+        Chemin vers le shapefile représentant l’emprise géographique de référence.
+    output_path : str
+        Chemin de sortie du shapefile filtré contenant uniquement certains codes d’intérêt.
+    output_path_all : str
+        Chemin de sortie du shapefile complet incluant l’ensemble des codes traités.
     """
     # Load the vegetation and extent shapefiles
     gdf_vegetation = gpd.read_file(shapefile_path_vege)
@@ -256,6 +316,8 @@ def create_vegetation_code(shapefile_path_vege, shapefile_path_emprise, output_p
         "FF1G01-01": ("Chêne", "12"),
         "FF1-14-14": ("Robinier", "13"),
         "FP": ("Peupleraie", "14"),
+        "FF1-00-00": ("Mélange de feuillus", "15"), 
+        "FF1-00": ("Feuillus en îlots", "16"),
         "FF2-91-91": ("Autres conifères autre que pin", "21"),
         "FF2-63-63": ("Autres conifères autre que pin", "21"),
         "FF2G61-61": ("Autres conifères autre que pin", "21"),
@@ -266,6 +328,10 @@ def create_vegetation_code(shapefile_path_vege, shapefile_path_emprise, output_p
         "FF2-64-64": ("Douglas", "23"),
         "FF2G53-53": ("Pin laricio ou pin noir", "24"),
         "FF2-51-51": ("Pin maritime", "25"),
+        "FF2-00-00": ("Mélange conifères", "26"),
+        "FF2-00": ("Conifères en îlots", "27"),
+        "FF32": ("Mélange de conifères prépondérants et feuillus", "28"),
+        "FF31": ("Mélange de feuillus prépondérants et conifères", "29"),
     }
 
     # Map values to the 'nom' and 'code' columns
@@ -279,17 +345,33 @@ def create_vegetation_code(shapefile_path_vege, shapefile_path_emprise, output_p
     vege_emprise = gpd.clip(gdf_vegetation, gdf_emprise)
     
     # Save the processed shapefile
-    vege_emprise.to_file(output_path)
+    vege_emprise.to_file(output_path_all)
+    codes_of_interest = ["11", "12", "13", "14", "21", "22", "23", "24", "25"]
+    filtered_gdf = gdf_vegetation[gdf_vegetation['code'].isin(codes_of_interest)]
+
+    # Clipper le shapefile de végétation avec l'emprise
+    vege_emprise_interest = gpd.clip(filtered_gdf, gdf_emprise)
+
+    # Sauvegarder le shapefile traité
+    vege_emprise_interest.to_file(output_path)
 
 def rasterize(in_vector, out_image, field_name, sptial_resolution, type_data):
     """
-    Rasterizes a vector layer with a specified extent, field, and spatial resolution.
-    Args:
-        in_vector (str): Path to the input vector file.
-        out_image (str): Path to the output raster file.
-        field_name (str): Name of the field to rasterize.
-        sptial_resolution (float): Spatial resolution for the output raster.
-        emprise (str): Path to the vector file defining the extent.
+    Convertit un shapefile en raster en utilisant un champ d’attribut pour la valeur des pixels,
+    et applique une résolution et une emprise préalablement définie.
+
+    Paramètres
+    ----------
+    in_vector : str
+        Chemin vers la couche vectorielle (fichier .shp, GeoPackage, etc.) à rasteriser.
+    out_image : str
+        Chemin du fichier GeoTIFF en sortie.
+    field_name : str
+        Nom du champ d’attribut utilisé pour définir la valeur des pixels dans le raster.
+    sptial_resolution : float
+        Résolution spatiale (taille d’un pixel, en unités du système de coordonnées).
+    type_data : str
+        Type de données de sortie (ex. "Byte", "UInt16", "Float32", etc.).
     """
     emprise_tif = '/home/onyxia/work/results/data/img_pretraitees/emprise.tif'
 
@@ -320,10 +402,15 @@ def rasterize(in_vector, out_image, field_name, sptial_resolution, type_data):
 
 def masque(input_dir, output_dir):
     """
-    Generates a mask from an input image where non-zero values are retained.
-    Args:
-        input_image (str): Path to the input raster file.
-        output_masque (str): Path to save the mask raster file.
+    Crée un shapefile binaire à partir d’un shapefile de végétation existant, puis le 
+    convertit en masque raster pour distinguer la forêt des autres formations.
+
+    Paramètres
+    ----------
+    input_dir : str
+        Chemin vers le répertoire contenant le shapefile de végétation (FORMATION_VEGETALE.shp).
+    output_dir : str
+        Chemin vers le répertoire où seront sauvegardés le shapefile binaire et le masque raster.
     """
     # Open the input image and load it as a numpy array
     shapefile_path_vege = os.path.join(input_dir,'FORMATION_VEGETALE.shp')
@@ -360,15 +447,16 @@ def masque(input_dir, output_dir):
 
 def load_shapefile(file_path):
     """
-    Loads a shapefile as a GeoDataFrame.
-    Args:
-        file_path (str): Path to the shapefile.
-    Returns:
-        GeoDataFrame: Loaded shapefile as a GeoDataFrame.
+    Charge un shapefile dans un GeoDataFrame via Geopandas.
+
+    Paramètres
+    ----------
+    file_path : str
+        Chemin vers le shapefile (.shp) à charger.
     """
     return gpd.read_file(file_path)
 
-def calculate_polygons_per_class(dataframe, class_column):
+def calculate_polygons_per_class(shapefile_path, class_column):
     """
     Counts the number of polygons per class in a GeoDataFrame.
     Args:
@@ -377,6 +465,7 @@ def calculate_polygons_per_class(dataframe, class_column):
     Returns:
         Series: Count of polygons per class.
     """
+    dataframe = load_shapefile(shapefile_path)
     return dataframe[class_column].value_counts()
 
 def create_bar_chart_matplotlib(data, output_poly_path):
@@ -407,17 +496,18 @@ def create_bar_chart_matplotlib(data, output_poly_path):
     plt.savefig(output_poly_path)
     plt.close()
 
-def pixels_per_class(input_image, dataframe, output_pix_path):
+def pixels_per_class(input_image, shapefile_path, output_pix_path):
     """
     Analyzes the number of pixels for each class in a raster and generates a bar chart.
     Args:
         input_image (str): Path to the raster image.
-        dataframe (str): Path to the GeoDataFrame containing class information.
+        shapefile_path (str): Path to the shapefile containing class information.
         output_pix_path (str): Path to save the output bar chart.
     """
     # Load raster and compute unique pixel values
     img = rw.load_img_as_array(input_image)
     unique_values, counts = np.unique(img, return_counts=True)
+    dataframe = load_shapefile(shapefile_path)
 
     dataframe["code"] = dataframe["code"].astype(int)
 
@@ -443,7 +533,18 @@ def pixels_per_class(input_image, dataframe, output_pix_path):
     plt.savefig(output_pix_path)
     plt.close()
 
-def make_id(dataframe, output_id_shp, output_id_tif):
+def make_id(dataframe, output_id_shp):
+    """
+    Attribue un identifiant unique à chaque entité d’un GeoDataFrame, enregistre 
+    le résultat sous forme de shapefile, puis génère un raster basé sur cet identifiant.
+
+    Paramètres
+    ----------
+    dataframe : geopandas.GeoDataFrame
+        Objet contenant des entités géographiques avec une colonne 'code'.
+    output_id_shp : str
+        Chemin cible pour enregistrer le shapefile contenant la colonne 'unique_id'.
+    """
     dataframe["code"] = dataframe["code"].astype(int)
     dataframe["unique_id"] = range(1, len(dataframe) + 1)
     output_id_shp = '/home/onyxia/work/results/data/sample/forest_id.shp'
@@ -455,23 +556,30 @@ def make_id(dataframe, output_id_shp, output_id_tif):
     type_data = 'Uint16'
     rasterize(output_id_shp, output_id_tif, field, resolution, type_data)
 
-def pixels_per_polygons_per_class(dataframe, output_violin_path):
+def pixels_per_polygons_per_class(shapefile_path, output_violin_path):
     """
     Computes and visualizes the pixel distribution per polygon for each class.
     Args:
-        dataframe (str): Path to the GeoDataFrame containing class information.
+        shapefile_path (str): Path to the shapefile containing class information.
         output_violin_path (str): Path to save the output violin plot.
     """
     output_id_shp = '/home/onyxia/work/results/data/sample/forest_id.shp'
     output_id_tif = '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif'
 
+    if os.path.exists(output_id_shp):
+        dataframe = load_shapefile(output_id_shp)
+    else: 
+        shapefile = '/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ.shp'
+        gdf = gpd.read_file(shapefile)
+        make_id(gdf, output_id_shp)
+        dataframe = load_shapefile(output_id_shp)
 
-    make_id(dataframe, output_id_shp, output_id_tif)
     array = rw.load_img_as_array(output_id_tif)
-    counts = np.bincount(array.flatten())
+    unique_values, counts = np.unique(array, return_counts=True)
 
-    # Ajout de l'information "nombre_pixels" au GeoDataFrame
-    dataframe["nombre_pixels"] = dataframe["unique_id"].apply(lambda x: counts[x] if x < len(counts) else 0)
+    val_to_count = dict(zip(unique_values, counts))
+
+    dataframe["nombre_pixels"] = dataframe["unique_id"].map(val_to_count)
 
     # Préparation des données pour le diagramme en violon
     unique_noms = dataframe["nom"].unique()
@@ -484,7 +592,7 @@ def pixels_per_polygons_per_class(dataframe, output_violin_path):
 
     # Paramétrages de l'axe et des titres
     ax.set(
-        yscale='log',
+        yscale="log",
         title="Distribution du nombre de pixels par polygone pour chaque essence d'arbres",
         xlabel="Essences d'arbres",
         ylabel="Nombre de pixels par polygone (Échelle logarithmique)"
@@ -499,26 +607,33 @@ def pixels_per_polygons_per_class(dataframe, output_violin_path):
         violin_body .set(facecolor='skyblue', edgecolor='black', alpha=0.7)
 
     # Personnalisation des lignes (médianes, moyennes, barres)
-    for line_type in ['cmeans', 'cmedians', 'cbars', 'cmins', 'cmaxes']:
-        parts[line_type].set(lw=0.5, ls='--', color='black')
+    for line_type in ['cbars', 'cmins', 'cmaxes']:
+        parts[line_type].set(lw=0.5, ls='--', color='gray')
+
+    # Style spécifique pour la moyenne
+    parts['cmeans'].set(lw=1, ls='-', color='black')  # Ligne plus épaisse et rouge pour la moyenne
+
+    # Style spécifique pour la médiane
+    parts['cmedians'].set(lw=1, ls='-', color='darkgray')  # Ligne plus épaisse et bleue pour la médiane
 
     plt.tight_layout()
     plt.savefig(output_violin_path)
 
-def compute_class_statistics(ndvi, classes, selected_classes, band_dates):
+def compute_class_statistics(ndvi_path, classes_path, selected_classes, band_dates):
     """
     Compute mean and standard deviation of NDVI for each class and temporal band.
 
     Args:
-        ndvi (np.ndarray): NDVI data as a 3D array (bands, rows, columns).
-        classes (np.ndarray): Class data as a 2D array.
+        ndvi_path (str): path of the NDVI geotiff data.
+        classes_path (str) : path of the Class geotiff data.
         selected_classes (list): List of selected classes.
         band_dates (list): List of dates corresponding to each band.
 
     Returns:
         pd.DataFrame: DataFrame containing the computed statistics.
     """
-
+    ndvi = rw.load_img_as_array(ndvi_path)
+    classes = rw.load_img_as_array(classes_path)
     classes = np.squeeze(classes)
     results = []
     for band_idx in range(ndvi.shape[2]):
@@ -637,30 +752,56 @@ def plot_ndvi_results(results_df, selected_classes, class_to_color, code_to_name
 # Fonction pour calculer l'indice d'une bande
 def calculate_band_index(date_index, band_position, bands_per_date, total_bands):
     """
-    Calcule l'indice de bande pour une date et une position données.
-    Vérifie que l'indice ne dépasse pas le nombre total de bandes.
+    Calcule l’indice d’une bande spécifique dans un tableau multidimensionnel
+    qui contient plusieurs dates.
+
+    Paramètres
+    ----------
+    date_index : int
+        Indice de la date.
+    band_position : int
+        Position de la bande dans la liste des bandes pour une date donnée.
+    bands_per_date : int
+        Nombre total de bandes pour une seule date.
+    total_bands : int
+        Nombre total de bandes (toutes dates confondues).
     """
     band_index = date_index * bands_per_date + band_position
     if band_index >= total_bands:
-        raise ValueError(f"L'indice de bande {band_index} dépasse le nombre total de bandes ({total_bands}).")
+        raise ValueError(
+            f"L'indice de bande {band_index} dépasse le nombre total de bandes ({total_bands})."
+        )
     return band_index
 
-# Fonction pour calculer le NDVI
 def compute_ndvi(red_band, nir_band):
     """
-    Calcule le NDVI à partir des bandes rouge et infrarouge.
-    Gère les divisions par zéro en remplaçant les NaN par -9999.
+    Calcule l’Indice de Végétation par Différence Normalisée (NDVI).
+
+    Paramètres
+    ----------
+    red_band : numpy.ndarray
+        Tableau correspondant à la bande rouge.
+    nir_band : numpy.ndarray
+        Tableau correspondant à la bande infrarouge proche (NIR).
     """
     ndvi = (nir_band - red_band) / (nir_band + red_band)
-    return np.nan_to_num(ndvi, nan=-9999)  # Remplace les NaN par -9999
+    return np.nan_to_num(ndvi, nan=-9999)
 
 def report_from_dict_to_df(dict_report):
+    """
+    Convertit le rapport de classification (sous forme de dictionnaire) en un DataFrame Pandas, 
+    tout en supprimant les lignes et colonnes jugées non nécessaires.
 
-    # convert report into dataframe
+    Paramètres
+    ----------
+    dict_report : dict
+        Dictionnaire contenant les métriques de classification (précision, recall, f1-score, etc.)
+    """
+    # Conversion du rapport en DataFrame
     report_df = pd.DataFrame.from_dict(dict_report)
 
-    # drop unnecessary rows and columns
-    try :
+    # Suppression de lignes/colonnes non nécessaires
+    try:
         report_df = report_df.drop(['accuracy', 'macro avg', 'weighted avg'], axis=1)
     except KeyError:
         print(dict_report)
@@ -671,6 +812,28 @@ def report_from_dict_to_df(dict_report):
     return report_df
 
 def classif_pixel(image_filename, sample_filename, id_filename, out_folder, nb_folds, nb_iter):
+    """
+    Effectue une classification pixel à partir d’une image et de données d’échantillonnage, 
+    en utilisant un classifieur par forêts aléatoires (RandomForest) avec validation croisée 
+    stratifiée et regroupée.
+
+    Paramètres
+    ----------
+    image_filename : str
+        Chemin vers l’image à classer (format compatible GDAL).
+    sample_filename : str
+        Chemin vers le shapefile ou raster contenant les échantillons de classes.
+    id_filename : str
+        Chemin vers le shapefile ou raster contenant les identifiants (IDs) de regroupement 
+        (pour la StratifiedGroupKFold).
+    out_folder : str
+        Chemin du dossier de sortie pour les résultats (cartes, matrices de confusion, rapports).
+    nb_folds : int
+        Nombre de plis (folds) utilisés lors de la validation croisée.
+    nb_iter : int
+        Nombre d’itérations de la validation croisée répétée.
+    """      
+
     suffix = '_CV{}folds_stratified_group_x{}times'.format(nb_folds, nb_iter)
     out_classif = os.path.join(out_folder, 'carte_essences_echelle_pixel.tif')
     out_matrix = os.path.join(out_folder, 'matrice{}.png'.format(suffix))
@@ -837,28 +1000,41 @@ def calculate_distances(ndvi_data, band_means, mask):
     distances = np.squeeze(distances)
     mask = np.squeeze(mask)
     for band in range(ndvi_data.shape[2]):
-        distances += np.squeeze((ndvi_data[:, :, band]) - band_means[band]) ** 2
+        distances += np.squeeze(band_means[band] - (ndvi_data[:, :, band])) ** 2
     distances = np.sqrt(distances)
     return distances[mask]
 
-def plot_average_distances(average_distances, code_to_name, output_path):
+def plot_average_distances(average_distances, code_to_name, classes_of_interest_1, classes_of_interest_2, output_path):
     """
-    Create a bar chart showing average distances to centroid for each class.
+    Create a bar chart showing average distances to centroid for each class, with two color groups.
 
     Args:
         average_distances (dict): Dictionary of class IDs and their average distances.
         code_to_name (dict): Mapping of class codes to names.
+        classes_of_interest_1 (list): First list of class IDs of interest.
+        classes_of_interest_2 (list): Second list of class IDs of interest.
         output_path (str): Path to save the plot.
     """
     # Replace class codes with names
     class_names = [code_to_name[class_id] for class_id in average_distances.keys()]
     values = list(average_distances.values())
 
-    # Plot bar chart
-    plt.bar(class_names, values, align='center', color='skyblue')
+    # Create a color list based on the two groups
+    colors = []
+    for class_id in average_distances.keys():
+        if class_id in classes_of_interest_1:
+            colors.append('skyblue')  # Color for first list
+        elif class_id in classes_of_interest_2:
+            colors.append('peachpuff')    # Color for second list
+        else:
+            colors.append('gray')    # Default color if class doesn't belong to any group
+
+    # Plot bar chart with specific colors
+    plt.figure(figsize=(14, 8))
+    plt.bar(class_names, values, align='center', color=colors)
     plt.xlabel("Essences d'arbres")
-    plt.ylabel("Distance moyenne au centroide")
-    plt.title("Distance moyenne au centroide par essences d'arbres")
+    plt.ylabel("Distance moyenne au centroïde")
+    plt.title("Distance moyenne au centroïde par essences d'arbres")
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     plt.savefig(output_path)
@@ -878,21 +1054,26 @@ def load_class_names(shapefile_path):
     shapefile["code"] = shapefile["code"].astype(int)
     return dict(zip(shapefile["code"], shapefile["nom"]))
 
-def calculate_average_distances(ndvi_data, classes_data, classes_of_interest):
+def calculate_average_distances(ndvi, classes, classes_of_interest_1, classes_of_interest_2):
     """
-    Calculate the average distances to the centroid for the given classes.
+    Calculate the average distances to the centroid for the given classes, divided into two groups.
 
     Args:
         ndvi_data (np.ndarray): NDVI data array (shape: [bands, height, width]).
         classes_data (np.ndarray): Class data array (shape: [height, width]).
-        classes_of_interest (list): List of class IDs to process.
+        classes_of_interest_1 (list): First list of class IDs to process.
+        classes_of_interest_2 (list): Second list of class IDs to process.
 
     Returns:
         dict: Dictionary with class IDs as keys and average distances as values.
     """
+    ndvi_data = rw.load_img_as_array(ndvi)  
+    classes_data = rw.load_img_as_array(classes)  
+
     average_distances = {}
 
-    for class_id in classes_of_interest:
+    # Loop through both lists of classes
+    for class_id in (classes_of_interest_1 + classes_of_interest_2):  # Combine both lists
         class_mask = classes_data == class_id
         if not np.any(class_mask):
             print(f"No pixels found for class {class_id}")
@@ -909,3 +1090,141 @@ def calculate_average_distances(ndvi_data, classes_data, classes_of_interest):
         average_distances[class_id] = average_distance
 
     return average_distances
+
+
+def calculate_average_distances_class_poly(ndvi, classes, classes_of_interest_1, classes_of_interest_2, output_violin_path):
+    """
+    Calcule les distances moyennes au centroïde (en termes de valeurs NDVI) pour différentes 
+    classes d’intérêt, puis génère un diagramme en violon illustrant la distribution 
+    de ces distances par classe et par polygone.
+
+    Paramètres
+    ----------
+    ndvi : str
+        Chemin vers le fichier raster NDVI (fichier .tif).
+    classes : str
+        Chemin vers le fichier raster des classes (fichier .tif).
+    classes_of_interest_1 : list
+        Liste des identifiants de classes d’intérêt (ex. [1,2,3]) correspondant à un premier 
+        groupe de classes.
+    classes_of_interest_2 : list
+        Liste des identifiants de classes d’intérêt correspondant à un second groupe de classes.
+    output_violin_path : str
+        Chemin où sera enregistré le diagramme en violon (fichier .png ou .jpg).
+    """
+    output_id_tif = '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif'
+
+    if os.path.exists(output_id_tif):
+        pass
+    else: 
+        shapefile = '/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ_all.shp'
+        output_id_shp = '/home/onyxia/work/results/data/sample/forest_id_all.shp'
+        gdf = gpd.read_file(shapefile)
+        make_id(gdf, output_id_shp)
+
+    ndvi_data = rw.load_img_as_array(ndvi)  
+    classes_data = rw.load_img_as_array(classes)
+    # Dictionnaire pour stocker les distances au centroïde par classe
+    distances_by_class = {}
+    
+    # Remplir le dictionnaire distances_by_class avec les distances par polygone et par classe
+    for class_id in classes_of_interest_1 + classes_of_interest_2:  # Union des deux listes
+        class_mask = classes_data == class_id
+        distances_per_polygon = []  # Liste pour stocker les distances par polygone de cette classe
+
+        for zone_id in np.unique(output_id_tif):
+            zone_mask = output_id_tif == zone_id
+            combined_mask = class_mask & zone_mask
+            
+            # Calculate band means for the class
+            band_means = calculate_band_means(ndvi_data, combined_mask)
+
+            # Calculate distances to centroid
+            distances = calculate_distances(ndvi_data, band_means, combined_mask)
+            distances_per_polygon.extend(distances)  # Ajouter les distances du polygone dans la liste
+        
+        # Ajouter les distances de tous les polygones d'une classe
+        distances_by_class[class_id] = distances_per_polygon
+    
+    # Transformation des données pour le violon plot
+    data_for_violin = []
+    unique_classes = list(distances_by_class.keys())
+
+    for class_id in unique_classes:
+        distances = distances_by_class[class_id]
+        data_for_violin.append(distances)
+    
+    # Création du diagramme en violon
+    fig, ax = plt.subplots(figsize=(14, 8))
+    parts = ax.violinplot(data_for_violin, showmeans=True, showmedians=True, showextrema=True)
+
+    # Paramétrages de l'axe et des titres
+    ax.set(
+        title="Distribution des distances au centroïde par polygone et par classe",
+        xlabel="Classes d'intérêt",
+        ylabel="Distance au centroïde (Échelle logarithmique)"
+    )
+
+    # Ajustement des labels de l'axe X
+    ax.set_xticks(np.arange(1, len(unique_classes) + 1))
+    ax.set_xticklabels([f"Classe {cls}" for cls in unique_classes], rotation=45, ha='right')
+
+    # Personnalisation des violons : appliquer des couleurs distinctes pour les deux listes
+    for i, violin_body in enumerate(parts['bodies']):
+        if unique_classes[i] in classes_of_interest_1:
+            violin_body.set(facecolor='skyblue', edgecolor='black', alpha=0.7)  # Orange pour la 1ère liste
+        elif unique_classes[i] in classes_of_interest_2:
+            violin_body.set(facecolor='peachpuff', edgecolor='black', alpha=0.7)  # Bleu pour la 2ème liste
+
+    for line_type in ['cbars', 'cmins', 'cmaxes']:
+        parts[line_type].set(lw=0.5, ls='--', color='gray')
+
+    # Style spécifique pour la moyenne
+    parts['cmeans'].set(lw=1, ls='-', color='black')  # Ligne plus épaisse et rouge pour la moyenne
+
+    # Style spécifique pour la médiane
+    parts['cmedians'].set(lw=1, ls='-', color='darkgray')  # Ligne plus épaisse et bleue pour la médiane
+    plt.tight_layout()
+    plt.savefig(output_violin_path)
+
+def remove_shapefile(shp_path):
+    """
+    Supprime tous les fichiers associés à un shapefile en se basant
+    sur le chemin complet du fichier .shp, sans utiliser glob ni autres bibliothèques.
+    
+    Paramètres
+    ----------
+    shp_path : str
+        Chemin complet vers le fichier .shp 
+        (ex. '/home/onyxia/work/data/mon_shapefile.shp').
+    """
+    # Détermine la base du nom de fichier (sans l’extension)
+    base, extension = os.path.splitext(shp_path)
+    
+    # Liste des extensions couramment associées à un shapefile
+    known_extensions = ['.shp', '.shx', '.dbf', '.prj', '.cpg']
+    
+    for ext in known_extensions:
+        file_to_remove = base + ext
+        if os.path.exists(file_to_remove):
+            print(f"Suppression du fichier : {file_to_remove}")
+            os.remove(file_to_remove)
+
+def remove_temp_file():
+    liste_tif_inter = ['/home/onyxia/work/results/data/img_pretraitees/emprise.tif',
+    '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif',
+    '/home/onyxia/work/results/data/img_pretraitees/Sample_BD_foret_T31TCJ_all.tif']
+    liste_shp_inter = ['/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ_all.shp',
+    '/home/onyxia/work/results/data/sample/forest_id.shp']
+    for tif in liste_tif_inter:   
+        if os.path.exists(tif):
+            os.remove(tif)
+        else:
+            pass
+    for shp in liste_shp_inter:
+        if os.path.exists(shp):
+            remove_shapefile(shp)
+        else:
+            pass
+
+
