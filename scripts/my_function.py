@@ -980,6 +980,7 @@ def classif_pixel(image_filename, sample_filename, id_filename, out_folder, nb_f
                     nb_col=None, nb_ligne=None, nb_band=1)
         print(f"Classification réalisée et enregistré dans {out_classif}")
         print(f"Performances du modèle enregistrées dans {out_folder}")
+        remove_temp_file()
     else:
         print("L'image pré traitées n'existe pas, veuillez d'abord lancer le script 'pré_traitement.py'.")
 
@@ -1136,15 +1137,11 @@ def calculate_average_distances_class_poly(ndvi, classes, classes_of_interest_1,
     output_violin_path : str
         Chemin où sera enregistré le diagramme en violon (fichier .png ou .jpg).
     """
-    output_id_tif = '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif'
-
-    if os.path.exists(output_id_tif):
-        pass
-    else: 
-        shapefile = '/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ_all.shp'
-        output_id_shp = '/home/onyxia/work/results/data/sample/forest_id_all.shp'
-        gdf = gpd.read_file(shapefile)
-        make_id(gdf, output_id_shp)
+    output_id_tif = '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif' 
+    shapefile = '/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ_all.shp'
+    output_id_shp = '/home/onyxia/work/results/data/sample/forest_id_all.shp'
+    gdf = gpd.read_file(shapefile)
+    make_id(gdf, output_id_shp)
     if os.path.exists(ndvi):
         ndvi_data = rw.load_img_as_array(ndvi)  
         classes_data = rw.load_img_as_array(classes)
@@ -1196,9 +1193,9 @@ def calculate_average_distances_class_poly(ndvi, classes, classes_of_interest_1,
         # Personnalisation des violons : appliquer des couleurs distinctes pour les deux listes
         for i, violin_body in enumerate(parts['bodies']):
             if unique_classes[i] in classes_of_interest_1:
-                violin_body.set(facecolor='skyblue', edgecolor='black', alpha=0.7)  # Orange pour la 1ère liste
+                violin_body.set(facecolor='peachpuff', edgecolor='black', alpha=0.7)  # Orange pour la 1ère liste
             elif unique_classes[i] in classes_of_interest_2:
-                violin_body.set(facecolor='peachpuff', edgecolor='black', alpha=0.7)  # Bleu pour la 2ème liste
+                violin_body.set(facecolor='skyblue', edgecolor='black', alpha=0.7)  # Bleu pour la 2ème liste
 
         for line_type in ['cbars', 'cmins', 'cmaxes']:
             parts[line_type].set(lw=0.5, ls='--', color='gray')
@@ -1211,6 +1208,7 @@ def calculate_average_distances_class_poly(ndvi, classes, classes_of_interest_1,
         plt.tight_layout()
         plt.savefig(output_violin_path)
         print(f"Diagramme en violon créé et enregistré dans {output_violin_path}")
+        remove_temp_file()
     else:
         print("L'image NDVI n'existe pas, veuillez d'abord lancer le script 'pre_traitement.py'.")
 
