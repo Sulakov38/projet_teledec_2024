@@ -684,7 +684,7 @@ def create_class_to_color_mapping(classes, colormap):
     """
     return {cls: colormap[i % len(colormap)] for i, cls in enumerate(classes)}
 
-def plot_ndvi_results(results_df, selected_classes, class_to_color, code_to_name, output_path):
+def plot_ndvi_results(ndvi_path, classes_path, selected_classes, band_dates, shapefile_path, output_path):
     """
     Plot the NDVI results with mean and standard deviation for each class.
 
@@ -695,59 +695,73 @@ def plot_ndvi_results(results_df, selected_classes, class_to_color, code_to_name
         code_to_name (dict): Mapping of class codes to names.
         output_path (str): Path to save the output plot.
     """
-    plt.figure(figsize=(12, 8))
+    if os.path.exists(ndvi_path):
+        code_to_name = load_class_names(shapefile_path)
+        # Statistiques du NDVI
+        results_df = compute_class_statistics(ndvi_path, classes_path, selected_classes, band_dates)
 
-    # Plot curves for each class
-    for cls in selected_classes:
-        class_data = results_df[results_df["class"] == cls]
-        color = class_to_color[cls]
+        # Map class names using shapefile
+        results_df = map_class_names(results_df, shapefile_path)
 
-        # Plot mean
-        plt.plot(
-            class_data["band"],
-            class_data["mean"],
-            marker="o",
-            color=color,
+        # Create color mapping for classes
+        colors = plt.cm.tab10.colors
+        class_to_color = create_class_to_color_mapping(selected_classes, colors)
+        plt.figure(figsize=(12, 8))
+
+        # Plot curves for each class
+        for cls in selected_classes:
+            class_data = results_df[results_df["class"] == cls]
+            color = class_to_color[cls]
+
+            # Plot mean
+            plt.plot(
+                class_data["band"],
+                class_data["mean"],
+                marker="o",
+                color=color,
+            )
+            # Plot standard deviation
+            plt.plot(
+                class_data["band"],
+                class_data["std"],
+                marker="x",
+                linestyle="--",
+                color=color,
+            )
+
+        # Build custom legend
+        custom_legend = [
+            Line2D([0], [0], color=class_to_color[cls], marker="o", linestyle="-", label=f"{code_to_name[cls]}")
+            for cls in selected_classes
+        ]
+
+        # Add legend styles for mean and std
+        legend_title = [
+            Line2D([0], [0], color="black", marker="o", label="Moyenne"),
+            Line2D([0], [0], color="black", linestyle="--", marker="x", label="Ecart type"),
+        ]
+
+        # Configure legend
+        plt.legend(
+            handles=legend_title + custom_legend,
+            title="Essences d'arbres",
+            loc="center",
+            frameon=True,
+            framealpha=0.8,
+            fontsize=10
         )
-        # Plot standard deviation
-        plt.plot(
-            class_data["band"],
-            class_data["std"],
-            marker="x",
-            linestyle="--",
-            color=color,
-        )
 
-    # Build custom legend
-    custom_legend = [
-        Line2D([0], [0], color=class_to_color[cls], marker="o", linestyle="-", label=f"{code_to_name[cls]}")
-        for cls in selected_classes
-    ]
-
-    # Add legend styles for mean and std
-    legend_title = [
-        Line2D([0], [0], color="black", marker="o", label="Moyenne"),
-        Line2D([0], [0], color="black", linestyle="--", marker="x", label="Ecart type"),
-    ]
-
-    # Configure legend
-    plt.legend(
-        handles=legend_title + custom_legend,
-        title="Essences d'arbres",
-        loc="center",
-        frameon=True,
-        framealpha=0.8,
-        fontsize=10
-    )
-
-    # Configure plot
-    plt.title("Signature temporelle de la moyenne et de l'écart type du NDVI par classe")
-    plt.xlabel("Dates")
-    plt.ylabel("NDVI")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(output_path)
-    plt.close()
+        # Configure plot
+        plt.title("Signature temporelle de la moyenne et de l'écart type du NDVI par classe")
+        plt.xlabel("Dates")
+        plt.ylabel("NDVI")
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(output_path)
+        print(f"Diagramme créé et enregistré dans {output_path}")
+        plt.close()
+    else:
+        print("Le fichier NDVI n'existe pas, veuillez lancer d'abord le script 'pre_traitement.py'.")
 
 # Fonction pour calculer l'indice d'une bande
 def calculate_band_index(date_index, band_position, bands_per_date, total_bands):
@@ -834,137 +848,141 @@ def classif_pixel(image_filename, sample_filename, id_filename, out_folder, nb_f
         Nombre d’itérations de la validation croisée répétée.
     """      
 
-    suffix = '_CV{}folds_stratified_group_x{}times'.format(nb_folds, nb_iter)
-    out_classif = os.path.join(out_folder, 'carte_essences_echelle_pixel.tif')
-    out_matrix = os.path.join(out_folder, 'matrice{}.png'.format(suffix))
-    out_qualite = os.path.join(out_folder, 'qualites{}.png'.format(suffix))
+    if os.path.exists(image_filename):
+        suffix = '_CV{}folds_stratified_group_x{}times'.format(nb_folds, nb_iter)
+        out_classif = os.path.join(out_folder, 'carte_essences_echelle_pixel.tif')
+        out_matrix = os.path.join(out_folder, 'matrice{}.png'.format(suffix))
+        out_qualite = os.path.join(out_folder, 'qualites{}.png'.format(suffix))
 
-    X, Y, t = cla.get_samples_from_roi(image_filename, sample_filename)
-    _, groups, _ = cla.get_samples_from_roi(image_filename, id_filename)
+        X, Y, t = cla.get_samples_from_roi(image_filename, sample_filename)
+        _, groups, _ = cla.get_samples_from_roi(image_filename, id_filename)
 
 
-    groups = np.squeeze(groups)
-    # Supposons que Y contient toutes les classes
+        groups = np.squeeze(groups)
+        # Supposons que Y contient toutes les classes
 
-    list_cm = []
-    list_accuracy = []
-    list_report = []
-    Y = Y.squeeze()
-    unique_classes = np.unique(Y)
+        list_cm = []
+        list_accuracy = []
+        list_report = []
+        Y = Y.squeeze()
+        unique_classes = np.unique(Y)
 
-    # Cross-validation stratifiée avec groupes
-    for iter_num in range(nb_iter):
-        kf = StratifiedGroupKFold(n_splits=nb_folds, shuffle=True)
-        
-        for fold_num, (train, test) in enumerate(kf.split(X, Y, groups=groups)):
-            X_train, X_test = X[train], X[test]
-            Y_train, Y_test = Y[train], Y[test]
-
-            # Entraînement
-            clf = RF(max_depth=50, oob_score=True, max_samples=0.75, class_weight='balanced', n_jobs=-1)
-            clf.fit(X_train, Y_train)
-
-            # Test
-            Y_predict = clf.predict(X_test)
-            # Imprimer la composition des Y_test et Y_predict
-            print(f"Iteration {iter_num}, Fold {fold_num}")
-            print("Composition de Y_test :")
-            print(dict(zip(*np.unique(Y_test, return_counts=True))))
-            print("Composition de Y_predict :")
-            print(dict(zip(*np.unique(Y_predict, return_counts=True))))
-            # Compute confusion matrix
-            cm = confusion_matrix(Y_test, Y_predict)
+        # Cross-validation stratifiée avec groupes
+        for iter_num in range(nb_iter):
+            kf = StratifiedGroupKFold(n_splits=nb_folds, shuffle=True)
             
-            # Ajouter des classes absentes avec des zéros dans la matrice de confusion
-            cm_full = np.zeros((len(unique_classes), len(unique_classes)))
-            for i in range(len(unique_classes)):
-                if i < cm.shape[0]:
-                    cm_full[i, :cm.shape[1]] = cm[i]
-            
-            list_cm.append(cm_full)
+            for fold_num, (train, test) in enumerate(kf.split(X, Y, groups=groups)):
+                X_train, X_test = X[train], X[test]
+                Y_train, Y_test = Y[train], Y[test]
 
-            # Compute accuracy
-            list_accuracy.append(accuracy_score(Y_test, Y_predict))
+                # Entraînement
+                clf = RF(max_depth=50, oob_score=True, max_samples=0.75, class_weight='balanced', n_jobs=-1)
+                clf.fit(X_train, Y_train)
 
-            # Classification report
-            report = classification_report(Y_test, Y_predict,
-                                        labels=unique_classes,
-                                        output_dict=True)
+                # Test
+                Y_predict = clf.predict(X_test)
+                # Imprimer la composition des Y_test et Y_predict
+                print(f"Iteration {iter_num}, Fold {fold_num}")
+                print("Composition de Y_test :")
+                print(dict(zip(*np.unique(Y_test, return_counts=True))))
+                print("Composition de Y_predict :")
+                print(dict(zip(*np.unique(Y_predict, return_counts=True))))
+                # Compute confusion matrix
+                cm = confusion_matrix(Y_test, Y_predict)
+                
+                # Ajouter des classes absentes avec des zéros dans la matrice de confusion
+                cm_full = np.zeros((len(unique_classes), len(unique_classes)))
+                for i in range(len(unique_classes)):
+                    if i < cm.shape[0]:
+                        cm_full[i, :cm.shape[1]] = cm[i]
+                
+                list_cm.append(cm_full)
+
+                # Compute accuracy
+                list_accuracy.append(accuracy_score(Y_test, Y_predict))
+
+                # Classification report
+                report = classification_report(Y_test, Y_predict,
+                                            labels=unique_classes,
+                                            output_dict=True)
 
 
-            # Passer le rapport rempli à la fonction
-            list_report.append(report_from_dict_to_df(report))
+                # Passer le rapport rempli à la fonction
+                list_report.append(report_from_dict_to_df(report))
 
-    # compute mean of cm
-    array_cm = np.array(list_cm)
-    mean_cm = array_cm.mean(axis=0)
+        # compute mean of cm
+        array_cm = np.array(list_cm)
+        mean_cm = array_cm.mean(axis=0)
 
-    # compute mean and std of overall accuracy
-    array_accuracy = np.array(list_accuracy)
-    mean_accuracy = array_accuracy.mean()
-    std_accuracy = array_accuracy.std()
+        # compute mean and std of overall accuracy
+        array_accuracy = np.array(list_accuracy)
+        mean_accuracy = array_accuracy.mean()
+        std_accuracy = array_accuracy.std()
 
-    # compute mean and std of classification report
-    array_report = np.array(list_report)
-    mean_report = array_report.mean(axis=0)
-    std_report = array_report.std(axis=0)
-    a_report = list_report[0]
-    mean_df_report = pd.DataFrame(mean_report, index=a_report.index,
-                            columns=a_report.columns)
-    std_df_report = pd.DataFrame(std_report, index=a_report.index,
-                            columns=a_report.columns)
+        # compute mean and std of classification report
+        array_report = np.array(list_report)
+        mean_report = array_report.mean(axis=0)
+        std_report = array_report.std(axis=0)
+        a_report = list_report[0]
+        mean_df_report = pd.DataFrame(mean_report, index=a_report.index,
+                                columns=a_report.columns)
+        std_df_report = pd.DataFrame(std_report, index=a_report.index,
+                                columns=a_report.columns)
 
-    # Display confusion matrix
-    plots.plot_cm(mean_cm, np.unique(Y_predict))
-    plt.savefig(out_matrix, bbox_inches='tight')
+        # Display confusion matrix
+        plots.plot_cm(mean_cm, np.unique(Y_predict))
+        plt.savefig(out_matrix, bbox_inches='tight')
 
-    # Display class metrics
-    fig, ax = plt.subplots(figsize=(10, 7))
-    ax = mean_df_report.T.plot.bar(ax=ax, yerr=std_df_report.T, zorder=2)
-    ax.set_ylim(0, 1)
-    _ = ax.text(1.5, 0.95, 'OA : {:.2f} +- {:.2f}'.format(mean_accuracy,
-                                                        std_accuracy),
-                fontsize=14)
-    ax.set_title('Class quality estimation')
+        # Display class metrics
+        fig, ax = plt.subplots(figsize=(10, 7))
+        ax = mean_df_report.T.plot.bar(ax=ax, yerr=std_df_report.T, zorder=2)
+        ax.set_ylim(0, 1)
+        _ = ax.text(1.5, 0.95, 'OA : {:.2f} +- {:.2f}'.format(mean_accuracy,
+                                                            std_accuracy),
+                    fontsize=14)
+        ax.set_title('Class quality estimation')
 
-    # custom : cuteness
-    # background color
-    ax.set_facecolor('ivory')
-    # labels
-    x_label = ax.get_xlabel()
-    ax.set_xlabel(x_label, fontdict={'fontname': 'Sawasdee'}, fontsize=14)
-    y_label = ax.get_ylabel()
-    ax.set_ylabel(y_label, fontdict={'fontname': 'Sawasdee'}, fontsize=14)
-    # borders
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["bottom"].set_visible(False)
-    ax.spines["left"].set_visible(False)
-    ax.tick_params(axis='x', colors='darkslategrey', labelsize=14)
-    ax.tick_params(axis='y', colors='darkslategrey', labelsize=14)
-    # grid
-    ax.minorticks_on()
-    ax.yaxis.grid(which='major', color='darkgoldenrod', linestyle='--',
-                linewidth=0.5, zorder=1)
-    ax.yaxis.grid(which='minor', color='darkgoldenrod', linestyle='-.',
-                linewidth=0.3, zorder=1)
-    plt.savefig(out_qualite, bbox_inches='tight')
+        # custom : cuteness
+        # background color
+        ax.set_facecolor('ivory')
+        # labels
+        x_label = ax.get_xlabel()
+        ax.set_xlabel(x_label, fontdict={'fontname': 'Sawasdee'}, fontsize=14)
+        y_label = ax.get_ylabel()
+        ax.set_ylabel(y_label, fontdict={'fontname': 'Sawasdee'}, fontsize=14)
+        # borders
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.tick_params(axis='x', colors='darkslategrey', labelsize=14)
+        ax.tick_params(axis='y', colors='darkslategrey', labelsize=14)
+        # grid
+        ax.minorticks_on()
+        ax.yaxis.grid(which='major', color='darkgoldenrod', linestyle='--',
+                    linewidth=0.5, zorder=1)
+        ax.yaxis.grid(which='minor', color='darkgoldenrod', linestyle='-.',
+                    linewidth=0.3, zorder=1)
+        plt.savefig(out_qualite, bbox_inches='tight')
 
-    X_img, _, t_img = cla.get_samples_from_roi(image_filename, image_filename)
-    Y_predict = clf.predict(X_img)
-    ds = rw.open_image(image_filename)
-    nb_row, nb_col, _ = rw.get_image_dimension(ds)
+        X_img, _, t_img = cla.get_samples_from_roi(image_filename, image_filename)
+        Y_predict = clf.predict(X_img)
+        ds = rw.open_image(image_filename)
+        nb_row, nb_col, _ = rw.get_image_dimension(ds)
 
-    #initialization of the array
-    img = np.zeros((nb_row, nb_col, 1), dtype='uint8')
-    #np.Y_predict
+        #initialization of the array
+        img = np.zeros((nb_row, nb_col, 1), dtype='uint8')
+        #np.Y_predict
 
-    img[t_img[0], t_img[1], 0] = Y_predict
-    rw.write_image(out_classif, img, data_set=ds, gdal_dtype=None,
-                transform=None, projection=None, driver_name=None,
-                nb_col=None, nb_ligne=None, nb_band=1)
-    print(f"Classification réalisée et enregistré dans {out_classif}")
-    print(f"Performances du modèle enregistrées dans {out_folder}")
+        img[t_img[0], t_img[1], 0] = Y_predict
+        rw.write_image(out_classif, img, data_set=ds, gdal_dtype=None,
+                    transform=None, projection=None, driver_name=None,
+                    nb_col=None, nb_ligne=None, nb_band=1)
+        print(f"Classification réalisée et enregistré dans {out_classif}")
+        print(f"Performances du modèle enregistrées dans {out_folder}")
+    else:
+        print("L'image pré traitées n'existe pas, veuillez d'abord lancer le script 'pré_traitement.py'.")
+
 
 
 def calculate_band_means(ndvi_data, mask):
@@ -1007,7 +1025,7 @@ def calculate_distances(ndvi_data, band_means, mask):
     return distances[mask]
 
 
-def plot_average_distances(average_distances, code_to_name, classes_of_interest_1, classes_of_interest_2, output_path):
+def plot_average_distances(ndvi, classes, code_to_name, classes_of_interest_1, classes_of_interest_2, output_path):
     """
     Create a bar chart showing average distances to centroid for each class, with two color groups.
 
@@ -1018,31 +1036,34 @@ def plot_average_distances(average_distances, code_to_name, classes_of_interest_
         classes_of_interest_2 (list): Second list of class IDs of interest.
         output_path (str): Path to save the plot.
     """
-    # Replace class codes with names
-    class_names = [code_to_name[class_id] for class_id in average_distances.keys()]
-    values = list(average_distances.values())
+    if os.path.exists(ndvi): 
+        average_distances = calculate_average_distances(ndvi, classes, classes_of_interest_1, classes_of_interest_2)
+        # Replace class codes with names
+        class_names = [code_to_name[class_id] for class_id in average_distances.keys()]
+        values = list(average_distances.values())
 
-    # Create a color list based on the two groups
-    colors = []
-    for class_id in average_distances.keys():
-        if class_id in classes_of_interest_1:
-            colors.append('skyblue')  # Color for first list
-        elif class_id in classes_of_interest_2:
-            colors.append('peachpuff')    # Color for second list
-        else:
-            colors.append('gray')    # Default color if class doesn't belong to any group
+        # Create a color list based on the two groups
+        colors = []
+        for class_id in average_distances.keys():
+            if class_id in classes_of_interest_1:
+                colors.append('peachpuff')  # Color for first list
+            elif class_id in classes_of_interest_2:
+                colors.append('skyblue')    # Color for second list
+            else:
+                colors.append('gray')    # Default color if class doesn't belong to any group
 
-    # Plot bar chart with specific colors
-    plt.figure(figsize=(14, 8))
-    plt.bar(class_names, values, align='center', color=colors)
-    plt.xlabel("Essences d'arbres")
-    plt.ylabel("Distance moyenne au centroïde")
-    plt.title("Distance moyenne au centroïde par essences d'arbres")
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
-    plt.savefig(output_path)
-    print(f"Diagramme créé et enregistré dans {output_path}")
-    plt.close()
+        # Plot bar chart with specific colors
+        plt.figure(figsize=(14, 8))
+        plt.bar(class_names, values, align='center', color=colors)
+        plt.xlabel("Essences d'arbres")
+        plt.ylabel("Distance moyenne au centroïde")
+        plt.title("Distance moyenne au centroïde par essences d'arbres")
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        plt.savefig(output_path)
+        plt.close()
+    else:
+        print("L'image NDVI n'existe pas, veuillez d'abord lancer le script 'pre_traitement.py'.")
 
 def load_class_names(shapefile_path):
     """

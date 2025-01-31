@@ -14,7 +14,7 @@ if os.path.exists(output_id_tif):
 else: 
     output_id_shp = '/home/onyxia/work/results/data/sample/forest_id.shp'
     gdf = gpd.read_file(shapefile)
-    make_id(gdf, output_id_shp, output_id_tif)
+    make_id(gdf, output_id_shp)
 
 image_filename = '/home/onyxia/work/data/images/Serie_temp_S2_allbands.tif'
 
