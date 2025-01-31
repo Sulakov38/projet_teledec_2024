@@ -18,6 +18,6 @@ else:
 
 image_filename = '/home/onyxia/work/data/images/Serie_temp_S2_allbands.tif'
 
-out_folder = '/home/onyxia/work/results/data/classif'
+out_folder = '/home/onyxia/work/results/data/img_pretraitees/Serie_temp_S2_allbands.tif'
 classif_pixel(image_filename, classif_tif, output_id_tif, out_folder, 5, 30)
 
