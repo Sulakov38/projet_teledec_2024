@@ -1,5 +1,4 @@
 import os
-import geopandas as gpd
 from my_function import (
     make_id,
     classif_pixel
