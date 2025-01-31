@@ -110,14 +110,10 @@ def preparation(releves, bands, dirname, forest_mask):
     """
     suffixe = '.tif'
     emprise_tif = '/home/onyxia/work/results/data/img_pretraitees/emprise.tif'
-
-    if os.path.exists(emprise_tif):
-        pass
-    else:
-        emprise = '/home/onyxia/work/data/project/emprise_etude.shp'
-        field_name_emprise = 'minx'
-        sptial_resolution = 10.0
-        rasterize_emprise(emprise, emprise_tif, field_name_emprise, sptial_resolution)
+    emprise = '/home/onyxia/work/data/project/emprise_etude.shp'
+    field_name_emprise = 'minx'
+    sptial_resolution = 10.0
+    rasterize_emprise(emprise, emprise_tif, field_name_emprise, sptial_resolution)
     minx, miny, maxx, maxy = get_img_extend(emprise_tif)
     src_epsg = 32631  # EPSG 32631 (UTM zone 31N)
     dst_epsg = 2154   # EPSG 2154 (RGF93 / Lambert-93)
@@ -149,6 +145,7 @@ def preparation(releves, bands, dirname, forest_mask):
     merge(img_all_band, img_merge)
     nodata(img_merge, output_img, 0)
     os.remove(img_merge)
+    os.remove(emprise_tif)
 
 def create_ndvi(dirname, num_dates, bands_per_date, total_bands):
     """
@@ -399,6 +396,7 @@ def rasterize(in_vector, out_image, field_name, sptial_resolution, type_data):
     # Print and execute the command
     print(cmd)
     os.system(cmd)
+    os.remove(emprise_tif)
 
 def masque(input_dir, output_dir):
     """
@@ -980,7 +978,6 @@ def classif_pixel(image_filename, sample_filename, id_filename, out_folder, nb_f
                     nb_col=None, nb_ligne=None, nb_band=1)
         print(f"Classification réalisée et enregistré dans {out_classif}")
         print(f"Performances du modèle enregistrées dans {out_folder}")
-        remove_temp_file()
     else:
         print("L'image pré traitées n'existe pas, veuillez d'abord lancer le script 'pré_traitement.py'.")
 
@@ -1137,12 +1134,13 @@ def calculate_average_distances_class_poly(ndvi, classes, classes_of_interest_1,
     output_violin_path : str
         Chemin où sera enregistré le diagramme en violon (fichier .png ou .jpg).
     """
-    output_id_tif = '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif' 
-    shapefile = '/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ_all.shp'
-    output_id_shp = '/home/onyxia/work/results/data/sample/forest_id_all.shp'
-    gdf = gpd.read_file(shapefile)
-    make_id(gdf, output_id_shp)
     if os.path.exists(ndvi):
+        output_id_tif = '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif' 
+        shapefile = '/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ_all.shp'
+        output_id_shp = '/home/onyxia/work/results/data/sample/forest_id_all.shp'
+        gdf = gpd.read_file(shapefile)
+        make_id(gdf, output_id_shp)
+
         ndvi_data = rw.load_img_as_array(ndvi)  
         classes_data = rw.load_img_as_array(classes)
         # Dictionnaire pour stocker les distances au centroïde par classe
@@ -1208,49 +1206,7 @@ def calculate_average_distances_class_poly(ndvi, classes, classes_of_interest_1,
         plt.tight_layout()
         plt.savefig(output_violin_path)
         print(f"Diagramme en violon créé et enregistré dans {output_violin_path}")
-        remove_temp_file()
     else:
         print("L'image NDVI n'existe pas, veuillez d'abord lancer le script 'pre_traitement.py'.")
-
-
-def remove_shapefile(shp_path):
-    """
-    Supprime tous les fichiers associés à un shapefile en se basant
-    sur le chemin complet du fichier .shp, sans utiliser glob ni autres bibliothèques.
-    
-    Paramètres
-    ----------
-    shp_path : str
-        Chemin complet vers le fichier .shp 
-        (ex. '/home/onyxia/work/data/mon_shapefile.shp').
-    """
-    # Détermine la base du nom de fichier (sans l’extension)
-    base, extension = os.path.splitext(shp_path)
-    
-    # Liste des extensions couramment associées à un shapefile
-    known_extensions = ['.shp', '.shx', '.dbf', '.prj', '.cpg']
-    
-    for ext in known_extensions:
-        file_to_remove = base + ext
-        if os.path.exists(file_to_remove):
-            print(f"Suppression du fichier : {file_to_remove}")
-            os.remove(file_to_remove)
-
-def remove_temp_file():
-    liste_tif_inter = ['/home/onyxia/work/results/data/img_pretraitees/emprise.tif',
-    '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif',
-    '/home/onyxia/work/results/data/img_pretraitees/Sample_BD_foret_T31TCJ_all.tif']
-    liste_shp_inter = ['/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ_all.shp',
-    '/home/onyxia/work/results/data/sample/forest_id.shp']
-    for tif in liste_tif_inter:   
-        if os.path.exists(tif):
-            os.remove(tif)
-        else:
-            pass
-    for shp in liste_shp_inter:
-        if os.path.exists(shp):
-            remove_shapefile(shp)
-        else:
-            pass
 
 
