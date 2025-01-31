@@ -963,6 +963,8 @@ def classif_pixel(image_filename, sample_filename, id_filename, out_folder, nb_f
     rw.write_image(out_classif, img, data_set=ds, gdal_dtype=None,
                 transform=None, projection=None, driver_name=None,
                 nb_col=None, nb_ligne=None, nb_band=1)
+    print(f"Classification réalisée et enregistré dans {out_classif}")
+    print(f"Performances du modèle enregistrées dans {out_folder}")
 
 
 def calculate_band_means(ndvi_data, mask):
@@ -1004,6 +1006,7 @@ def calculate_distances(ndvi_data, band_means, mask):
     distances = np.sqrt(distances)
     return distances[mask]
 
+
 def plot_average_distances(average_distances, code_to_name, classes_of_interest_1, classes_of_interest_2, output_path):
     """
     Create a bar chart showing average distances to centroid for each class, with two color groups.
@@ -1038,6 +1041,7 @@ def plot_average_distances(average_distances, code_to_name, classes_of_interest_
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     plt.savefig(output_path)
+    print(f"Diagramme créé et enregistré dans {output_path}")
     plt.close()
 
 def load_class_names(shapefile_path):
@@ -1081,7 +1085,6 @@ def calculate_average_distances(ndvi, classes, classes_of_interest_1, classes_of
 
         # Calculate band means for the class
         band_means = calculate_band_means(ndvi_data, class_mask)
-
         # Calculate distances to centroid
         distances = calculate_distances(ndvi_data, band_means, class_mask)
 
@@ -1162,7 +1165,7 @@ def calculate_average_distances_class_poly(ndvi, classes, classes_of_interest_1,
     ax.set(
         title="Distribution des distances au centroïde par polygone et par classe",
         xlabel="Classes d'intérêt",
-        ylabel="Distance au centroïde (Échelle logarithmique)"
+        ylabel="Distance au centroïde"
     )
 
     # Ajustement des labels de l'axe X
@@ -1186,6 +1189,7 @@ def calculate_average_distances_class_poly(ndvi, classes, classes_of_interest_1,
     parts['cmedians'].set(lw=1, ls='-', color='darkgray')  # Ligne plus épaisse et bleue pour la médiane
     plt.tight_layout()
     plt.savefig(output_violin_path)
+    print(f"Diagramme en violon créé et enregistré dans {output_violin_path}")
 
 def remove_shapefile(shp_path):
     """
