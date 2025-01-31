@@ -1145,72 +1145,75 @@ def calculate_average_distances_class_poly(ndvi, classes, classes_of_interest_1,
         output_id_shp = '/home/onyxia/work/results/data/sample/forest_id_all.shp'
         gdf = gpd.read_file(shapefile)
         make_id(gdf, output_id_shp)
-
-    ndvi_data = rw.load_img_as_array(ndvi)  
-    classes_data = rw.load_img_as_array(classes)
-    # Dictionnaire pour stocker les distances au centroïde par classe
-    distances_by_class = {}
-    
-    # Remplir le dictionnaire distances_by_class avec les distances par polygone et par classe
-    for class_id in classes_of_interest_1 + classes_of_interest_2:  # Union des deux listes
-        class_mask = classes_data == class_id
-        distances_per_polygon = []  # Liste pour stocker les distances par polygone de cette classe
-
-        for zone_id in np.unique(output_id_tif):
-            zone_mask = output_id_tif == zone_id
-            combined_mask = class_mask & zone_mask
-            
-            # Calculate band means for the class
-            band_means = calculate_band_means(ndvi_data, combined_mask)
-
-            # Calculate distances to centroid
-            distances = calculate_distances(ndvi_data, band_means, combined_mask)
-            distances_per_polygon.extend(distances)  # Ajouter les distances du polygone dans la liste
+    if os.path.exists(ndvi):
+        ndvi_data = rw.load_img_as_array(ndvi)  
+        classes_data = rw.load_img_as_array(classes)
+        # Dictionnaire pour stocker les distances au centroïde par classe
+        distances_by_class = {}
         
-        # Ajouter les distances de tous les polygones d'une classe
-        distances_by_class[class_id] = distances_per_polygon
-    
-    # Transformation des données pour le violon plot
-    data_for_violin = []
-    unique_classes = list(distances_by_class.keys())
+        # Remplir le dictionnaire distances_by_class avec les distances par polygone et par classe
+        for class_id in classes_of_interest_1 + classes_of_interest_2:  # Union des deux listes
+            class_mask = classes_data == class_id
+            distances_per_polygon = []  # Liste pour stocker les distances par polygone de cette classe
 
-    for class_id in unique_classes:
-        distances = distances_by_class[class_id]
-        data_for_violin.append(distances)
-    
-    # Création du diagramme en violon
-    fig, ax = plt.subplots(figsize=(14, 8))
-    parts = ax.violinplot(data_for_violin, showmeans=True, showmedians=True, showextrema=True)
+            for zone_id in np.unique(output_id_tif):
+                zone_mask = output_id_tif == zone_id
+                combined_mask = class_mask & zone_mask
+                
+                # Calculate band means for the class
+                band_means = calculate_band_means(ndvi_data, combined_mask)
 
-    # Paramétrages de l'axe et des titres
-    ax.set(
-        title="Distribution des distances au centroïde par polygone et par classe",
-        xlabel="Classes d'intérêt",
-        ylabel="Distance au centroïde"
-    )
+                # Calculate distances to centroid
+                distances = calculate_distances(ndvi_data, band_means, combined_mask)
+                distances_per_polygon.extend(distances)  # Ajouter les distances du polygone dans la liste
+            
+            # Ajouter les distances de tous les polygones d'une classe
+            distances_by_class[class_id] = distances_per_polygon
+        
+        # Transformation des données pour le violon plot
+        data_for_violin = []
+        unique_classes = list(distances_by_class.keys())
 
-    # Ajustement des labels de l'axe X
-    ax.set_xticks(np.arange(1, len(unique_classes) + 1))
-    ax.set_xticklabels([f"Classe {cls}" for cls in unique_classes], rotation=45, ha='right')
+        for class_id in unique_classes:
+            distances = distances_by_class[class_id]
+            data_for_violin.append(distances)
+        
+        # Création du diagramme en violon
+        fig, ax = plt.subplots(figsize=(14, 8))
+        parts = ax.violinplot(data_for_violin, showmeans=True, showmedians=True, showextrema=True)
 
-    # Personnalisation des violons : appliquer des couleurs distinctes pour les deux listes
-    for i, violin_body in enumerate(parts['bodies']):
-        if unique_classes[i] in classes_of_interest_1:
-            violin_body.set(facecolor='skyblue', edgecolor='black', alpha=0.7)  # Orange pour la 1ère liste
-        elif unique_classes[i] in classes_of_interest_2:
-            violin_body.set(facecolor='peachpuff', edgecolor='black', alpha=0.7)  # Bleu pour la 2ème liste
+        # Paramétrages de l'axe et des titres
+        ax.set(
+            title="Distribution des distances au centroïde par polygone et par classe",
+            xlabel="Classes d'intérêt",
+            ylabel="Distance au centroïde"
+        )
 
-    for line_type in ['cbars', 'cmins', 'cmaxes']:
-        parts[line_type].set(lw=0.5, ls='--', color='gray')
+        # Ajustement des labels de l'axe X
+        ax.set_xticks(np.arange(1, len(unique_classes) + 1))
+        ax.set_xticklabels([f"Classe {cls}" for cls in unique_classes], rotation=45, ha='right')
 
-    # Style spécifique pour la moyenne
-    parts['cmeans'].set(lw=1, ls='-', color='black')  # Ligne plus épaisse et rouge pour la moyenne
+        # Personnalisation des violons : appliquer des couleurs distinctes pour les deux listes
+        for i, violin_body in enumerate(parts['bodies']):
+            if unique_classes[i] in classes_of_interest_1:
+                violin_body.set(facecolor='skyblue', edgecolor='black', alpha=0.7)  # Orange pour la 1ère liste
+            elif unique_classes[i] in classes_of_interest_2:
+                violin_body.set(facecolor='peachpuff', edgecolor='black', alpha=0.7)  # Bleu pour la 2ème liste
 
-    # Style spécifique pour la médiane
-    parts['cmedians'].set(lw=1, ls='-', color='darkgray')  # Ligne plus épaisse et bleue pour la médiane
-    plt.tight_layout()
-    plt.savefig(output_violin_path)
-    print(f"Diagramme en violon créé et enregistré dans {output_violin_path}")
+        for line_type in ['cbars', 'cmins', 'cmaxes']:
+            parts[line_type].set(lw=0.5, ls='--', color='gray')
+
+        # Style spécifique pour la moyenne
+        parts['cmeans'].set(lw=1, ls='-', color='black')  # Ligne plus épaisse et rouge pour la moyenne
+
+        # Style spécifique pour la médiane
+        parts['cmedians'].set(lw=1, ls='-', color='darkgray')  # Ligne plus épaisse et bleue pour la médiane
+        plt.tight_layout()
+        plt.savefig(output_violin_path)
+        print(f"Diagramme en violon créé et enregistré dans {output_violin_path}")
+    else:
+        print("L'image NDVI n'existe pas, veuillez d'abord lancer le script 'pre_traitement.py'.")
+
 
 def remove_shapefile(shp_path):
     """
