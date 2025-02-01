@@ -531,7 +531,7 @@ def pixels_per_class(input_image, shapefile_path, output_pix_path):
     plt.savefig(output_pix_path)
     plt.close()
 
-def make_id(dataframe, output_id_shp):
+def make_id(dataframe, output_id_shp, output_id_tif):
     """
     Attribue un identifiant unique à chaque entité d’un GeoDataFrame, enregistre 
     le résultat sous forme de shapefile, puis génère un raster basé sur cet identifiant.
@@ -545,11 +545,9 @@ def make_id(dataframe, output_id_shp):
     """
     dataframe["code"] = dataframe["code"].astype(int)
     dataframe["unique_id"] = range(1, len(dataframe) + 1)
-    output_id_shp = '/home/onyxia/work/results/data/sample/forest_id.shp'
     dataframe.to_file(output_id_shp)
 
     field = "unique_id"
-    output_id_tif = '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif'
     resolution = 10
     type_data = 'Uint16'
     rasterize(output_id_shp, output_id_tif, field, resolution, type_data)
@@ -569,7 +567,7 @@ def pixels_per_polygons_per_class(shapefile_path, output_violin_path):
     else: 
         shapefile = '/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ.shp'
         gdf = gpd.read_file(shapefile)
-        make_id(gdf, output_id_shp)
+        make_id(gdf, output_id_shp, output_id_tif)
         dataframe = load_shapefile(output_id_shp)
 
     array = rw.load_img_as_array(output_id_tif)
@@ -1139,7 +1137,7 @@ def calculate_average_distances_class_poly(ndvi, classes, classes_of_interest_1,
         shapefile = '/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ_all.shp'
         output_id_shp = '/home/onyxia/work/results/data/sample/forest_id_all.shp'
         gdf = gpd.read_file(shapefile)
-        make_id(gdf, output_id_shp)
+        make_id(gdf, output_id_shp, output_id_tif)
 
         ndvi_data = rw.load_img_as_array(ndvi)  
         classes_data = rw.load_img_as_array(classes)
