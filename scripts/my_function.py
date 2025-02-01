@@ -1135,7 +1135,7 @@ def calculate_average_distances_class_poly(ndvi, classes, classes_of_interest_1,
         Chemin où sera enregistré le diagramme en violon (fichier .png ou .jpg).
     """
     if os.path.exists(ndvi):
-        output_id_tif = '/home/onyxia/work/results/data/img_pretraitees/forest_id.tif' 
+        output_id_tif = '/home/onyxia/work/results/data/img_pretraitees/forest_id_all.tif' 
         shapefile = '/home/onyxia/work/results/data/sample/Sample_BD_foret_T31TCJ_all.shp'
         output_id_shp = '/home/onyxia/work/results/data/sample/forest_id_all.shp'
         gdf = gpd.read_file(shapefile)
